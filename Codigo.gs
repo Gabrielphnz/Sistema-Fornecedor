@@ -3,38 +3,30 @@ function doGet() {
     return HtmlService.createTemplateFromFile('Index')
       .evaluate()
       .setTitle('Sistema Mercado & Padaria')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL) // Libera o acesso de frames
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL) // Resolve a tela branca
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   } catch (e) {
-    // Se der erro, ele mostra o erro na tela em vez de ficar branco
-    return HtmlService.createHtmlOutput("<h1>Erro de Carregamento</h1><p>" + e.message + "</p>");
+    return HtmlService.createHtmlOutput("Erro: " + e.message);
   }
 }
 
-// VALIDAÇÃO DE LOGIN COM AMORTECEDOR
-function validarLogin(loginDigitado, senhaDigitada) {
+
+function validarLogin(u, p) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const abaUsuarios = ss.getSheetByName("Usuarios");
-    const dados = abaUsuarios.getDataRange().getValues();
-    dados.shift(); 
-    
-    for (let i = 0; i < dados.length; i++) {
-      let [id, nome, loginStr, senhaStr, perfil, status] = dados[i];
-      if (loginStr.toString() === loginDigitado && senhaStr.toString() === senhaDigitada) {
-        if (status === "Ativo") {
-          return { sucesso: true, usuario: { id: id, nome: nome, perfil: perfil } };
-        } else {
-          return { sucesso: false, mensagem: "Usuário inativo." };
-        }
+    const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Usuarios");
+    const dados = aba.getDataRange().getValues();
+    for (let i = 1; i < dados.length; i++) {
+      if (dados[i][2].toString() === u && dados[i][3].toString() === p) {
+        return { sucesso: true, usuario: { nome: dados[i][1], perfil: dados[i][4] } };
       }
     }
-    return { sucesso: false, mensagem: "Login ou senha incorretos." };
+    return { sucesso: false, mensagem: "Login incorreto." };
   } catch (e) {
-    return { sucesso: false, mensagem: "Erro de permissão: " + e.message };
+    return { sucesso: false, mensagem: "Erro de permissão. Clique em 'Desbloquear'." };
   }
 }
 
+// Adicione as outras funções (getFornecedores, etc.) conforme necessário
 function getFornecedores() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -109,4 +101,3 @@ function registrarProducao(idOrdem, produto, status, motivo, obs) {
   }
   return true;
 }
-
