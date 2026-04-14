@@ -140,17 +140,17 @@ function getDetalhesPedido(idPedido, token) {
     .map(row => row.map(cell => (cell instanceof Date ? cell.toISOString() : cell)));
 }
 
-// ===================== ITENS FALTANTES =====================
-function registrarItensFaltantes(pedidoId, fornecedorId, itensFaltantes, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+// --- FUNÇÃO QUE ESTAVA FALTANDO ---
+function registrarItensFaltantes(pedidoId, fornecedorId, faltantes, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada");
   const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  let aba = ss.getSheetByName("Itens_Faltantes");
-  if (!aba) {
-    aba = ss.insertSheet("Itens_Faltantes");
-    aba.appendRow(["ID_Pedido", "Fornecedor_ID", "Produto", "Quantidade_Faltante", "Data_Registro", "Status"]);
-  }
-  itensFaltantes.forEach(item => {
-    aba.appendRow([pedidoId, fornecedorId, item.nome, item.qtdFaltante, new Date().toISOString(), "Pendente"]);
+  const aba = ss.getSheetByName("Historico_Falhas");
+  
+  if (!aba) throw new Error("Aba 'Historico_Falhas' não encontrada!");
+
+  faltantes.forEach(f => {
+    // Grava: Data | Produto | Qtd Faltante | ID Pedido | Fornecedor
+    aba.appendRow([new Date(), f.nome, f.qtdFaltante, pedidoId, fornecedorId]);
   });
   return true;
 }
