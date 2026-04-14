@@ -77,7 +77,6 @@ function getProdutosPorFornecedor(idFornecedor, token) {
               .map(row => row.map(c => (c instanceof Date ? c.toISOString() : c)));
 }
 
-// FIX 1: Nova função que retorna objetos em vez de arrays
 function getProdutosPorFornecedorSelect(idFornecedor, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const ss = SpreadsheetApp.openById(ID_PLANILHA);
@@ -193,7 +192,7 @@ function getItensFaltantesNaoResolvidos(fornecedorId, token) {
   return Array.from(mapa.values());
 }
 
-function alterarStatusPedido(idPedido, novoStatus, token) {
+function alterarStatusPedido(idPedido, novoStatus, token, observacao = "") {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const ss = SpreadsheetApp.openById(ID_PLANILHA);
   const aba = ss.getSheetByName("Pedidos_Mestre");
@@ -204,6 +203,10 @@ function alterarStatusPedido(idPedido, novoStatus, token) {
   for (let i = 0; i < dados.length; i++) {
     if (dados[i][0] === idPedido) {
       aba.getRange(i + 2, 4).setValue(novoStatus);
+      if (observacao) {
+        // Assume que a coluna 9 (I) é para observações de entrega
+        aba.getRange(i + 2, 9).setValue(observacao);
+      }
       if (novoStatus === "Entregue") {
         const faltasAba = ss.getSheetByName("Historico_Falhas");
         if (faltasAba) {
@@ -221,7 +224,6 @@ function alterarStatusPedido(idPedido, novoStatus, token) {
   throw new Error("Pedido não encontrado.");
 }
 
-// FIX 2: Gerar PDF formatado corretamente com permissões de visualização
 function gerarPDFPedido(idPedido, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   try {
@@ -273,11 +275,9 @@ function gerarPDFPedido(idPedido, token) {
     
     const pdfBlob = HtmlService.createHtmlOutput(html).getAs('application/pdf').setName(`${idPedido}.pdf`);
     const file = DriveApp.createFile(pdfBlob);
-    // FIX 2: Adiciona permissão de visualização para o arquivo
     file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
     return file.getUrl();
   } catch (e) {
-    Logger.log("Erro ao gerar PDF: " + e.message);
     throw new Error("Erro ao gerar PDF: " + e.message);
   }
 }
@@ -288,7 +288,6 @@ function getUltimosPedidosFornecedor(fornecedorId, token) {
   return dados.slice(1).filter(p => p[7] === fornecedorId).slice(-5).reverse();
 }
 
-// FIX 3: Dashboard com dados de gastos e fornecedores
 function getDashboardData(token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada");
   const ss = SpreadsheetApp.openById(ID_PLANILHA);
@@ -328,7 +327,6 @@ function getDashboardData(token) {
   return { pedidosPorFornecedor, ranking, totalMes };
 }
 
-// ===================== MÓDULO TROCAS / DEVOLUÇÕES =====================
 function salvarTroca(troca, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const ss = SpreadsheetApp.openById(ID_PLANILHA);

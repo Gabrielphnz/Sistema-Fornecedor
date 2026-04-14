@@ -53,6 +53,9 @@
     /* Dashboard */
     .dashboard-card { background: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     .dashboard-value { font-size: 2rem; font-weight: bold; color: var(--primary); }
+    
+    /* Alerta de Inflação */
+    .alerta-inflacao { color: #d63031; font-size: 0.75rem; font-weight: bold; margin-top: 4px; display: block; }
   </style>
 </head>
 <body>
@@ -81,7 +84,6 @@
     </div>
   </div>
 
-  <!-- DASHBOARD MODULE -->
   <div id="modulo-dashboard" class="hidden">
     <h3 class="mb-4"><i class="fas fa-chart-bar text-primary"></i> Dashboard</h3>
     <div class="row g-3 mb-4">
@@ -284,7 +286,7 @@
         <div class="text-end"><small class="text-muted d-block">Prazo / Pagamento</small><span id="vis-info" class="fw-bold"></span></div>
       </div>
       <div class="bg-light p-2 d-flex gap-2 justify-content-center border-bottom">
-        <button class="btn btn-sm btn-success flex-fill" onclick="mudarStatusVisualizador('Entregue')"><i class="fas fa-check"></i> Marcar Entregue</button>
+        <button class="btn btn-sm btn-success flex-fill" onclick="abrirModalConfirmacaoEntrega()"><i class="fas fa-check"></i> Marcar Entregue</button>
         <button class="btn btn-sm btn-warning flex-fill" onclick="iniciarRecebimentoParcialVisualizador()"><i class="fas fa-box-open"></i> Faltou Item</button>
         <button class="btn btn-sm btn-outline-danger" onclick="excluirDoVisualizador()"><i class="fas fa-trash"></i></button>
       </div>
@@ -301,6 +303,23 @@
     <div class="modal-footer bg-light justify-content-between">
       <button class="btn btn-outline-primary" onclick="gerarPDFVisualizador()"><i class="fas fa-file-pdf"></i> Imprimir PDF</button>
       <button class="btn btn-success" onclick="enviarWhatsVisualizador()"><i class="fab fa-whatsapp"></i> Reenviar WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalConfirmacaoEntrega" class="modal-overlay hidden" onclick="if(event.target.id==='modalConfirmacaoEntrega') fecharModal('modalConfirmacaoEntrega')">
+  <div class="modal-card" style="max-width: 400px;">
+    <div class="modal-header bg-success text-white">
+      <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i> Confirmar Entrega</h5>
+      <button class="btn-close-modal text-white" onclick="fecharModal('modalConfirmacaoEntrega')">&times;</button>
+    </div>
+    <div class="modal-body p-4">
+      <label class="small fw-bold text-muted mb-2">Quem recebeu / Observações</label>
+      <textarea id="obs-entrega" class="form-control" placeholder="Ex: Recebido por João, NF 123..." rows="3"></textarea>
+    </div>
+    <div class="modal-footer bg-light">
+      <button class="btn btn-outline-secondary" onclick="fecharModal('modalConfirmacaoEntrega')">Cancelar</button>
+      <button class="btn btn-success fw-bold" onclick="salvarEntregaFinal()"><i class="fas fa-save"></i> Confirmar</button>
     </div>
   </div>
 </div>
@@ -351,6 +370,7 @@
   let sessionToken = null;
   let pedidosEmCache = [];
   let pedidoSelecionadoVisualizador = null;
+  let historicoPrecos = {};
 
   function mostrarToast(msg, tipo = "info") {
     const c = document.getElementById('toastContainer');
@@ -507,6 +527,24 @@
     const pedidosForn = pedidosEmCache.filter(p => p[7] === idForn);
     selectRepetir.innerHTML = '<option value="">🔄 Digitar novo ou Repetir anterior?</option>' + 
       pedidosForn.slice(0, 5).map(p => `<option value="${p[0]}">${new Date(p[2]).toLocaleDateString()} - ${p[3]}</option>`).join('');
+    
+    // Carregar histórico de preços para alerta de inflação
+    carregarHistoricoPrecos(idForn);
+  }
+  
+  function carregarHistoricoPrecos(idForn) {
+    google.script.run.withSuccessHandler(pedidos => {
+      historicoPrecos = {};
+      if (pedidos.length > 0) {
+        // Pega o último pedido para comparar preços
+        const ultimoPedidoId = pedidos[0][0];
+        google.script.run.withSuccessHandler(itens => {
+          itens.forEach(i => {
+            historicoPrecos[i[1].toLowerCase()] = parseFloat(i[2]);
+          });
+        }).getDetalhesPedido(ultimoPedidoId, sessionToken);
+      }
+    }).getUltimosPedidosFornecedor(idForn, sessionToken);
   }
 
   function calcularDataPrazo() {
@@ -521,14 +559,37 @@
     const tr = document.createElement('tr');
     tr.className = "linha-editavel border-bottom";
     tr.innerHTML = `
-      <td><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto..." value="${nome}"></td>
+      <td>
+        <input type="text" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto..." value="${nome}" oninput="verificarInflacao(this)">
+        <small class="alerta-inflacao hidden"></small>
+      </td>
       <td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="${qtd}" oninput="calcTabela()"></td>
-      <td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="${preco}" oninput="calcTabela()"></td>
+      <td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="${preco}" oninput="calcTabela(); verificarInflacao(this.closest('tr').querySelector('.fn-nome'))"></td>
       <td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>
       <td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest('tr').remove(); calcTabela();"></i></td>
     `;
     document.getElementById('corpo-novo-pedido').appendChild(tr);
     calcTabela();
+  }
+  
+  function verificarInflacao(inputNome) {
+    const tr = inputNome.closest('tr');
+    const nome = inputNome.value.trim().toLowerCase();
+    const precoAtual = parseFloat(tr.querySelector('.fn-preco').value) || 0;
+    const alerta = tr.querySelector('.alerta-inflacao');
+    
+    if (historicoPrecos[nome] && precoAtual > 0) {
+      const precoAntigo = historicoPrecos[nome];
+      const aumento = (precoAtual - precoAntigo) / precoAntigo;
+      if (aumento >= 0.1) {
+        alerta.innerText = `⚠️ ${(aumento * 100).toFixed(0)}% mais caro que o último pedido (R$ ${precoAntigo.toFixed(2)})`;
+        alerta.classList.remove('hidden');
+      } else {
+        alerta.classList.add('hidden');
+      }
+    } else {
+      alerta.classList.add('hidden');
+    }
   }
 
   function repetirPedido() {
@@ -717,14 +778,20 @@
       })
       .getDetalhesPedido(idPedido, sessionToken);
   }
-
-  function mudarStatusVisualizador(novo) {
+  
+  function abrirModalConfirmacaoEntrega() {
+    document.getElementById('obs-entrega').value = '';
+    document.getElementById('modalConfirmacaoEntrega').classList.remove('hidden');
+  }
+  
+  function salvarEntregaFinal() {
     const id = pedidoSelecionadoVisualizador[0];
-    if(!confirm(`Mudar o status para ${novo}?`)) return;
+    const obs = document.getElementById('obs-entrega').value;
     showLoad(true);
     google.script.run
       .withSuccessHandler(() => {
-        mostrarToast("Status Alterado!", "success");
+        mostrarToast("Status Alterado para Entregue!", "success");
+        fecharModal('modalConfirmacaoEntrega');
         fecharModal('modalVisualizadorPedido');
         atualizarTabelaStatus();
       })
@@ -732,7 +799,7 @@
         showLoad(false);
         mostrarToast("Erro ao alterar status: " + err, "error");
       })
-      .alterarStatusPedido(id, novo, sessionToken);
+      .alterarStatusPedido(id, 'Entregue', sessionToken, obs);
   }
 
   function excluirDoVisualizador() {
