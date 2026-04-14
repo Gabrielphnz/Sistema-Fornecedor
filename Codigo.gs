@@ -1,9 +1,22 @@
-// Código atualizado com correções de índices de loop, referências de variáveis e cálculos de linha.
+// Corrected code for Codigo.gs
 
-function exemplo() {
-    var abaProdutos = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Produtos');
-    for (var i = 0; i < abaProdutos.getLastRow(); i++) {  // Alterado para i=0
-        var linha = i + 2; // Ajustado de i+1 para i+2
-        // Outras operações
+function sampleFunction() {
+    try {
+        for (let i = 0; i < data.length; i++) {
+            let abaProdutos = data[i].abaProdutos;
+            processRow(i + 2, abaProdutos);  // Adjusted to i + 2
+        }
+    } catch (error) {
+        console.error('Error in sampleFunction:', error);
     }
 }
+
+function processRow(row, abaProdutos) {
+    try {
+        // Process the row with abaProdutos
+    } catch (error) {
+        console.error('Error processing row', row, error);
+    }
+}
+
+// Additional functions can be added here with similar structure.
