@@ -1,103 +1,149 @@
+const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg"; // Substitui pelo ID real!
+
 function doGet() {
-  try {
-    return HtmlService.createTemplateFromFile('Index')
-      .evaluate()
-      .setTitle('Sistema Mercado & Padaria')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL) // Resolve a tela branca
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-  } catch (e) {
-    return HtmlService.createHtmlOutput("Erro: " + e.message);
-  }
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle('Sistema de Mercado')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-
-function validarLogin(u, p) {
+// ===================== AUTENTICAÇÃO (CACHE SEGURO) =====================
+function validarLogin(usuario, senha) {
   try {
-    const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Usuarios");
+    const ss = SpreadsheetApp.openById(ID_PLANILHA);
+    const aba = ss.getSheetByName("Usuarios");
     const dados = aba.getDataRange().getValues();
     for (let i = 1; i < dados.length; i++) {
-      if (dados[i][2].toString() === u && dados[i][3].toString() === p) {
-        return { sucesso: true, usuario: { nome: dados[i][1], perfil: dados[i][4] } };
+      if (dados[i][2].toString() === usuario && dados[i][3].toString() === senha) {
+        const token = Utilities.getUuid();
+        const usr = { nome: dados[i][1], perfil: dados[i][4], status: dados[i][5] };
+        CacheService.getScriptCache().put(token, JSON.stringify(usr), 14400); // 4 horas
+        return { sucesso: true, token: token, usuario: usr };
       }
     }
-    return { sucesso: false, mensagem: "Login incorreto." };
-  } catch (e) {
-    return { sucesso: false, mensagem: "Erro de permissão. Clique em 'Desbloquear'." };
-  }
+    return { sucesso: false, mensagem: "Usuário ou senha incorretos." };
+  } catch (e) { return { sucesso: false, mensagem: "Erro interno: " + e.message }; }
 }
 
-// Adicione as outras funções (getFornecedores, etc.) conforme necessário
-function getFornecedores() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const aba = ss.getSheetByName("Fornecedores");
-    if (!aba) throw new Error("Aba 'Fornecedores' não encontrada na planilha!");
-    
-    const dados = aba.getDataRange().getValues();
-    dados.shift(); 
-    return dados.map(r => ({id: r[0], nome: r[1], diaEntrega: r[3]}));
-  } catch (e) {
-    // Registra o erro no log do Google e avisa o front
-    console.error("Erro em getFornecedores: " + e.message);
-    throw new Error("Erro ao buscar fornecedores. Verifique os nomes das abas.");
-  }
+function verificarSessao(token) {
+  return token && CacheService.getScriptCache().get(token) !== null;
 }
 
-// BUSCAR PRODUTOS COM AMORTECEDOR
-function getProdutosPorFornecedor(idFornecedor) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const aba = ss.getSheetByName("Produtos");
-    const dados = aba.getDataRange().getValues();
-    dados.shift();
-    return dados.filter(r => r[1].toString() === idFornecedor.toString());
-  } catch (e) {
-    return [];
-  }
-}
-
-// SALVAR PEDIDO COM BLINDAGEM DE COMPARTILHAMENTO
-function salvarPedido(dadosPedido) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const abaMestre = ss.getSheetByName("Pedidos_Mestre");
-    const abaItens = ss.getSheetByName("Pedidos_Itens");
-    const idPedido = "PED-" + new Date().getTime();
-    
-    abaMestre.appendRow([idPedido, dadosPedido.fornecedor, new Date(), "Pendente", dadosPedido.prazo, "Aberto", dadosPedido.obs]);
-    
-    dadosPedido.itens.forEach(item => {
-      abaItens.appendRow([idPedido, item.nome, item.preco, item.qtd, item.bonificado, ""]);
-    });
-    return idPedido;
-  } catch (e) {
-    return "Erro ao salvar: " + e.message;
-  }
-}
-
-// STATUS E PRODUÇÃO COM AMORTECEDOR
-function getPedidosStatus() {
-  try { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Pedidos_Mestre").getDataRange().getValues().slice(1); }
-  catch(e) { return []; }
-}
-
-function getOrdensProducao() {
-  try {
-    const dados = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Producao_Ordens").getDataRange().getValues().slice(1);
-    return dados.filter(r => r[3] !== "Concluído");
-  } catch(e) { return []; }
-}
-
-// REGISTRAR PRODUÇÃO
-function registrarProducao(idOrdem, produto, status, motivo, obs) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaItens = ss.getSheetByName("Producao_Itens");
-  const abaFalhas = ss.getSheetByName("Historico_Falhas");
-  
-  abaItens.appendRow([idOrdem, produto, "", status, motivo, obs]);
-  
-  if (motivo === "Faltou Mercadoria") {
-    abaFalhas.appendRow([new Date(), produto, motivo, idOrdem, "Não"]);
-  }
+function logout(token) {
+  if (token) CacheService.getScriptCache().remove(token);
   return true;
+}
+
+// ===================== FORNECEDORES =====================
+function salvarFornecedor(dados, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Fornecedores");
+  const id = "FORN-" + Date.now();
+  aba.appendRow([id, dados.nome, dados.contato, dados.diaEntrega]);
+  return { id: id, nome: dados.nome };
+}
+
+function getFornecedores(token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Fornecedores");
+  if (!aba) return [];
+  const dados = aba.getDataRange().getValues();
+  if (dados.length <= 1) return [];
+  return dados.slice(1).map(r => ({ id: r[0], nome: r[1], contato: r[2], diaEntrega: r[3] }));
+}
+
+// ===================== PRODUTOS E PEDIDOS =====================
+function getProdutosPorFornecedor(idFornecedor, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Produtos");
+  if (!aba) return [];
+  const dados = aba.getDataRange().getValues();
+  if (dados.length <= 1) return [];
+  // Retorna produtos do fornecedor específico
+  return dados.slice(1).filter(r => r[1].toString() === idFornecedor.toString());
+}
+
+function salvarPedido(pedido, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const abaMestre = ss.getSheetByName("Pedidos_Mestre");
+  const abaItens = ss.getSheetByName("Pedidos_Itens");
+  const abaProdutos = ss.getSheetByName("Produtos");
+  
+  const idPedido = "PED-" + Date.now();
+  
+  // 1. Salva o Fechamento (Mestre)
+  abaMestre.appendRow([idPedido, pedido.nomeFornecedor, new Date(), "Pendente", pedido.prazo, pedido.financeiro, pedido.obs]);
+  
+  // 2. Busca produtos existentes para não duplicar no histórico
+  const produtosAtuais = abaProdutos.getDataRange().getValues().map(r => r[2].toString().toLowerCase());
+  
+  // 3. Salva os Itens
+  for (let item of pedido.itens) {
+    abaItens.appendRow([idPedido, item.nome, item.preco, item.qtd, item.bonificado, item.validade]);
+    
+    // SEGREDO DO HISTÓRICO: Se o item é novo, salva automaticamente no cadastro de produtos!
+    if (!produtosAtuais.includes(item.nome.toLowerCase())) {
+      abaProdutos.appendRow(["PROD-" + Date.now(), pedido.idFornecedor, item.nome, item.preco]);
+      produtosAtuais.push(item.nome.toLowerCase()); // atualiza array temporário
+    }
+  }
+  return idPedido;
+}
+
+function getPedidosStatus(token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const aba = ss.getSheetByName("Pedidos_Mestre");
+  
+  if (!aba) {
+    throw new Error("A aba 'Pedidos_Mestre' não existe. Verifica o nome!");
+  }
+  
+  const dados = aba.getDataRange().getValues();
+  
+  // Se só tiver o cabeçalho, a lista está vazia
+  if (dados.length <= 1) return []; 
+  
+  return dados.slice(1); // Devolve os pedidos todos
+}
+
+function alterarStatusPedido(idPedido, novoStatus, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
+  const dados = aba.getDataRange().getValues();
+  for (let i = 1; i < dados.length; i++) {
+    if (dados[i][0] === idPedido) {
+      aba.getRange(i + 1, 4).setValue(novoStatus);
+      return true;
+    }
+  }
+  throw new Error("Pedido não encontrado.");
+}
+
+function excluirPedido(idPedido, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
+  const dados = aba.getDataRange().getValues();
+  for (let i = dados.length - 1; i >= 1; i--) {
+    if (dados[i][0] === idPedido) {
+      aba.deleteRow(i + 1);
+      return true;
+    }
+  }
+  throw new Error("Não foi possível excluir.");
+}
+
+function getDetalhesPedido(idPedido, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Itens");
+  const dados = aba.getDataRange().getValues();
+  return dados.slice(1).filter(r => r[0] === idPedido);
+}
+
+function forcarAutorizacao() {
+  SpreadsheetApp.openById(ID_PLANILHA).getName();
+  return "Autorização OK! Recarregue a página.";
 }
