@@ -76,7 +76,7 @@
 
 <div class="main-content" id="main-content">
   <div id="tela-login" class="mt-5 text-center">
-    <h2 class="mb-4" style="color: var(--primary)">SISTEMA MERCADO</h2>
+    <h2 class="mb-4" style="color: var(--primary)">Gestão de Pedidos</h2>
     <div class="card-pedido mx-auto" style="max-width: 350px">
       <input type="text" id="user" class="form-control mb-3" placeholder="Usuário">
       <input type="password" id="pass" class="form-control mb-3" placeholder="Senha">
@@ -390,6 +390,12 @@
 
   // ========== INIT & NAVEGAÇÃO ==========
   function login() {
+    // Limpa espaços em branco ocultos no início e fim
+    const user = document.getElementById('user').value.trim();
+    const pass = document.getElementById('pass').value.trim();
+    
+    if(!user || !pass) return mostrarToast("Preencha o utilizador e a senha.", "error");
+
     showLoad(true);
     google.script.run
       .withSuccessHandler(res => {
@@ -407,7 +413,7 @@
         showLoad(false);
         mostrarToast("Erro ao conectar: " + err, "error");
       })
-      .validarLogin(document.getElementById('user').value, document.getElementById('pass').value);
+      .validarLogin(user, pass);
   }
   
   function logout() { location.reload(); }
@@ -528,7 +534,6 @@
     selectRepetir.innerHTML = '<option value="">🔄 Digitar novo ou Repetir anterior?</option>' + 
       pedidosForn.slice(0, 5).map(p => `<option value="${p[0]}">${new Date(p[2]).toLocaleDateString()} - ${p[3]}</option>`).join('');
     
-    // Carregar histórico de preços para alerta de inflação
     carregarHistoricoPrecos(idForn);
   }
   
@@ -536,7 +541,6 @@
     google.script.run.withSuccessHandler(pedidos => {
       historicoPrecos = {};
       if (pedidos.length > 0) {
-        // Pega o último pedido para comparar preços
         const ultimoPedidoId = pedidos[0][0];
         google.script.run.withSuccessHandler(itens => {
           itens.forEach(i => {
@@ -666,7 +670,8 @@
         showLoad(false);
         fecharModal('modalConfirmacao');
         
-        pedidoRecemSalvo = { id: idPedido, ...pedidoParaSalvar };
+        // CORREÇÃO CRÍTICA AQUI: Removido o Operador Spread ("...") que causava o Erro de Sintaxe
+        pedidoRecemSalvo = Object.assign({ id: idPedido }, pedidoParaSalvar);
         
         document.getElementById('modalSucessoPedido').classList.remove('hidden');
         
