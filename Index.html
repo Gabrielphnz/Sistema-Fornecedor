@@ -572,15 +572,6 @@ function finalizarPedido() {
   .salvarPedido(pedido, sessionToken);
 }
 
-  function mudarStatusSimples(id, novoStatus) {
-    if(!confirm(`Alterar status para ${novoStatus}?`)) return;
-    showLoad(true);
-    google.script.run.withSuccessHandler(() => {
-      mostrarToast("Status atualizado!", "success");
-      atualizarTabelaStatus();
-    }).alterarStatusPedido(id, novoStatus, sessionToken);
-  }
-
   function excluirPedido(id) {
     if(!confirm("Excluir pedido permanentemente?")) return;
     showLoad(true);
@@ -674,85 +665,64 @@ let pedidoIdAtual = null;
 let fornecedorIdAtual = null;
 let itensPedidoOriginal = []; // guarda itens do pedido para seleção
 
-// --- 1. ATUALIZAÇÃO DA TABELA (Injetando os IDs corretamente) ---
+// ATUALIZAÇÃO: Garante que o ID do Fornecedor e do Pedido fiquem "grudados" na linha
 function atualizarTabelaStatus() {
   showLoad(true);
-  google.script.run
-    .withSuccessHandler(pedidos => {
-      showLoad(false);
-      const tbody = document.getElementById('corpo-tabela-status');
-      if (!tbody) return; 
+  google.script.run.withSuccessHandler(pedidos => {
+    showLoad(false);
+    const tbody = document.getElementById('corpo-tabela-status');
+    if (!tbody) return;
 
-      if (!pedidos || pedidos.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='5' class='text-center p-4 text-muted'>Nenhum pedido encontrado.</td></tr>";
-        return;
-      }
-
-      tbody.innerHTML = pedidos.slice().reverse().map(p => {
-        const statusMap = {
-          'Pendente': 'bg-warning text-dark',
-          'Entregue': 'bg-success',
-          'Parcialmente Entregue': 'bg-info',
-          'Devolvido': 'bg-danger'
-        };
-        const cor = statusMap[p[3]] || 'bg-secondary';
-        const dataF = p[2] ? new Date(p[2]).toLocaleDateString() : '---';
-
-        // MUDANÇA CRÍTICA: data-pedido-id e data-fornecedor-id adicionados à tag <tr>
-        return `
-          <tr class="linha-item" data-pedido-id="${p[0]}" data-fornecedor-id="${p[1]}">
-            <td class="small text-muted">${p[0]}</td>
-            <td class="fw-bold">${p[1]}</td>
-            <td class="small">${dataF}</td>
-            <td><span class="badge ${cor}" style="font-size: 11px;">${p[3] || 'Pendente'}</span></td>
-            <td class="text-end overflow-visible">
-              <div class="dropdown">
-                <button class="btn btn-sm btn-light border" type="button" data-bs-toggle="dropdown">
-                  <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow">
-                  <li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Entregue')"><i class="fas fa-check text-success me-2"></i> Entregue Total</a></li>
-                  <li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Parcialmente Entregue')"><i class="fas fa-shipping-fast text-info me-2"></i> Entregue Parcial</a></li>
-                  <li><hr class="dropdown-divider"></li>
-                  <li><a class="dropdown-item" onclick="verDetalhes('${p[0]}')"><i class="fas fa-search me-2"></i> Ver Itens</a></li>
-                  <li><a class="dropdown-item text-danger" onclick="excluirPedido('${p[0]}')"><i class="fas fa-trash me-2"></i> Excluir</a></li>
-                </ul>
-              </div>
-            </td>
-          </tr>`;
-      }).join('');
-    })
-    .getPedidosStatus(sessionToken);
+    tbody.innerHTML = pedidos.slice().reverse().map(p => {
+      const statusMap = {'Pendente': 'warning', 'Entregue': 'success', 'Parcialmente Entregue': 'info', 'Devolvido': 'danger'};
+      const cor = statusMap[p[3]] || 'secondary';
+      
+      return `
+        <tr class="linha-item" data-pedido-id="${p[0]}" data-fornecedor-nome="${p[1]}">
+          <td><small>${p[0]}</small></td>
+          <td><b>${p[1]}</b></td>
+          <td>${p[2] ? new Date(p[2]).toLocaleDateString() : '---'}</td>
+          <td><span class="badge bg-${cor}">${p[3] || 'Pendente'}</span></td>
+          <td class="text-end overflow-visible">
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light border" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow">
+                <li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Entregue')"><i class="fas fa-check text-success me-2"></i> Entregue Total</a></li>
+                <li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Parcialmente Entregue')"><i class="fas fa-shipping-fast text-info me-2"></i> Entregue Parcial</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" onclick="verDetalhes('${p[0]}')"><i class="fas fa-search me-2"></i> Ver Itens</a></li>
+                <li><a class="dropdown-item text-danger" onclick="excluirPedido('${p[0]}')"><i class="fas fa-trash me-2"></i> Excluir</a></li>
+              </ul>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }).getPedidosStatus(sessionToken);
 }
 
-
-// --- 2. LÓGICA DE MUDANÇA DE STATUS (Corrigida para a Tabela) ---
+// CORREÇÃO: Busca os dados na linha (TR) correta
 function mudarStatusSimples(id, novoStatus) {
   if (novoStatus === 'Parcialmente Entregue' || novoStatus === 'Devolvido') {
     showLoad(true);
     google.script.run.withSuccessHandler(itens => {
       showLoad(false);
-      const itensFormatados = itens.map(i => ({ nome: i[1], qtd: i[3] }));
-      
-      // MUDANÇA CRÍTICA: Busca na .linha-item e não no .card-pedido
       const tr = document.querySelector(`.linha-item[data-pedido-id="${id}"]`);
-      const fornecedorId = tr ? tr.dataset.fornecedorId : null;
-
-      if (fornecedorId) {
-        abrirModalFaltantes(id, fornecedorId, itensFormatados);
-      } else {
-        mostrarToast("Erro: não foi possível identificar o fornecedor.", "error");
-      }
+      const fornecedorNome = tr ? tr.dataset.fornecedorNome : "N/A";
+      
+      const itensFormatados = itens.map(i => ({ nome: i[1], qtdPedida: i[3] }));
+      abrirModalFaltantes(id, fornecedorNome, itensFormatados);
     }).getDetalhesPedido(id, sessionToken);
-    return; // Para a execução aqui para esperar o modal
+    return;
   }
-
-  // Para Entrega Total
-  if(!confirm(`Confirma a alteração para ${novoStatus}?`)) return;
+  
+  // Lógica de alteração direta (Entregue Total)
+  if(!confirm("Mudar status para " + novoStatus + "?")) return;
   showLoad(true);
   google.script.run.withSuccessHandler(() => {
     showLoad(false);
-    mostrarToast("Status atualizado com sucesso!", "success");
+    mostrarToast("Status atualizado!", "success");
     atualizarTabelaStatus();
   }).alterarStatusPedido(id, novoStatus, sessionToken);
 }
