@@ -1,39 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
-    :root { --primary: #4c1130; --bg: #f0f2f5; --toast-bg: #333; }
-    body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; min-height: 100vh; }
+    :root { 
+      --primary: #4c1130; 
+      --primary-light: #751a4b;
+      --bg: #f4f6f9; 
+      --toast-bg: #2d3436; 
+      --card-bg: #ffffff;
+    }
+    
+    body { background-color: var(--bg); font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; min-height: 100vh; color: #333; }
+    
+    /* TOASTS */
     .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1100; }
-    .toast-custom { background: var(--toast-bg); color: white; border-radius: 8px; padding: 12px 20px; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); animation: fadein 0.3s; display: flex; align-items: center; gap: 10px; }
-    @keyframes fadein { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    .sidebar { width: 250px; position: fixed; top: 0; left: 0; height: 100%; background: var(--primary); color: white; padding: 25px; z-index: 1050; border-right: 1px solid rgba(255,255,255,0.1); }
-    .sidebar h4 { font-weight: bold; margin-bottom: 25px; }
-    .sidebar a { color: rgba(255,255,255,0.8); text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; cursor: pointer; }
-    .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
-    .nav-bottom { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 5px; border-top: 1px solid #ddd; z-index: 1000; }
-    .nav-item { text-align: center; font-size: 11px; color: #777; text-decoration: none; cursor: pointer; flex: 1; }
-    .main-content { padding: 15px; padding-bottom: 90px; transition: 0.3s; }
-    .card-pedido { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: none; }
+    .toast-custom { background: var(--toast-bg); color: white; border-radius: 12px; padding: 14px 24px; margin-top: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: fadein 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 12px; font-weight: 500; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* SIDEBAR (Desktop) */
+    .sidebar { 
+      width: 260px; 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      height: 100%; 
+      background: linear-gradient(180deg, var(--primary) 0%, #2b091b 100%); 
+      color: white; 
+      padding: 30px 20px; 
+      z-index: 1050; 
+      border-right: none; 
+      box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+      transition: margin-left 0.3s ease;
+    }
+    .sidebar.collapsed { margin-left: -260px; }
+    .sidebar h4 { font-weight: 800; margin-bottom: 35px; letter-spacing: 1px; text-transform: uppercase; font-size: 1.2rem; text-align: center;}
+    .sidebar a { color: rgba(255,255,255,0.7); text-decoration: none; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; margin-bottom: 8px; transition: all 0.3s ease; font-weight: 500; cursor: pointer; }
+    .sidebar a i { width: 20px; text-align: center; font-size: 1.1rem; }
+    .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; transform: translateX(5px); }
+    
+    /* MAIN CONTENT */
+    .main-content { 
+      transition: margin-left 0.3s ease; 
+      padding: 20px; 
+      padding-bottom: 110px; 
+      margin-left: 260px; 
+      min-height: 100vh;
+    }
+    .main-content.expanded { margin-left: 0 !important; }
+    
+    /* NAV BOTTOM (Mobile) */
+    .nav-bottom { 
+      position: fixed; 
+      bottom: 0; 
+      left: 0; 
+      width: 100%; 
+      background: rgba(255, 255, 255, 0.95); 
+      backdrop-filter: blur(10px); 
+      display: flex; 
+      justify-content: space-around; 
+      padding: 10px 5px 25px 5px; 
+      z-index: 1000; 
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.06); 
+      border-radius: 24px 24px 0 0; 
+    }
+    .nav-item { text-align: center; font-size: 11px; color: #888; text-decoration: none; cursor: pointer; flex: 1; transition: 0.3s; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .nav-item i { font-size: 22px; margin-bottom: 4px; display: block; transition: 0.3s; }
+    .nav-item:hover, .nav-item:active { color: var(--primary); }
+    
+    /* CARDS E BOTÕES */
+    .card-pedido { background: var(--card-bg); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .btn-main { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border-radius: 12px; padding: 15px; border: none; width: 100%; font-weight: 700; font-size: 16px; transition: all 0.3s ease; box-shadow: 0 6px 15px rgba(76, 17, 48, 0.25); cursor: pointer; }
+    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(76, 17, 48, 0.4); color: white; }
+    .form-control, .form-select { border-radius: 12px; padding: 12px 16px; border: 1.5px solid #e2e8f0; background-color: #f8fafc; transition: all 0.3s ease; font-size: 15px; }
+    .form-control:focus, .form-select:focus { border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(76, 17, 48, 0.1); outline: none; }
+    
+    /* TABELA DE PRODUTOS */
+    .tabela-fina { width: 100%; border-spacing: 0 5px; border-collapse: separate; }
+    .tabela-fina tr { background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .tabela-fina td, .tabela-fina th { padding: 10px; vertical-align: middle; }
+    .input-grid { border: 1px solid #ddd !important; padding: 5px !important; border-radius: 5px !important; width: 100%; }
+    
+    /* MODAL */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; }
+    .modal-card { background: white; width: 90%; max-width: 500px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: modalIn 0.3s ease-out; }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; color: var(--primary); }
+    .btn-close-modal { background: none; border: none; font-size: 28px; color: #999; cursor: pointer; }
+    .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+    .item-detalhe { padding: 12px; border-bottom: 1px solid #f8f9fa; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* SPINNER */
+    .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); backdrop-filter: blur(5px); z-index: 2000; display: flex; align-items: center; justify-content: center; visibility: hidden; }
+    .spinner-border { width: 3.5rem; height: 3.5rem; border-width: 4px; color: var(--primary); }
+    
     .hidden { display: none !important; }
-    .btn-main { background: var(--primary); color: white; border-radius: 8px; padding: 12px; border: none; width: 100%; font-weight: bold; transition: 0.3s; cursor: pointer; }
-    .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; visibility: hidden; }
-    .badge-status { font-size: 0.8rem; padding: 5px 10px; border-radius: 20px; }
-    @media (min-width: 768px) { .nav-bottom { display: none; } .main-content { margin-left: 250px; padding: 40px; } }
-    @media (max-width: 767px) { .sidebar { display: none; } }
+    
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main-content { margin-left: 0 !important; }
+    }
+
+    /* Garante que o menu dropdown apareça por cima de tudo */
+.dropdown-menu {
+  z-index: 2000 !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+  border-radius: 12px !important;
+}
+
+/* Evita que a tabela corte o menu ao abrir */
+.table-responsive {
+  overflow: visible !important;
+}
+
+/* Estilo para o botão dos três pontinhos ficar mais fácil de clicar */
+.btn-options {
+  padding: 5px 10px;
+  color: #64748b;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.btn-options:hover {
+  background: #e2e8f0;
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  #menu-toggle { display: block; }
+}
+@media (min-width: 769px) {
+  .sidebar.collapsed + .main-content #menu-toggle { display: block; }
+  .sidebar:not(.collapsed) + .main-content #menu-toggle { display: none; }
+}
+
+
+
   </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <body>
 
-<div id="spinner" class="spinner-overlay"><div class="spinner-border text-light"></div></div>
+<div id="spinner" class="spinner-overlay"><div class="spinner-border" role="status"></div></div>
 <div id="toastContainer" class="toast-container"></div>
 
 <div id="sidebar" class="sidebar hidden">
-  <h4>MERCADO 1.0</h4><hr>
+  <h4>MERCADO 1.0</h4>
   <a class="menu-gerente" onclick="mostrarModulo('fornecedores')"><i class="fas fa-truck"></i> Fornecedores</a>
   <a class="menu-gerente" onclick="mostrarModulo('novo-pedido')"><i class="fas fa-shopping-cart"></i> Novo Pedido</a>
   <a class="menu-gerente" onclick="mostrarModulo('status')"><i class="fas fa-chart-line"></i> Acompanhamento</a>
@@ -42,7 +160,10 @@
 </div>
 
 <div class="main-content">
-  
+  <button id="menu-toggle" class="btn btn-light rounded-circle shadow-sm position-fixed" style="top: 15px; left: 15px; z-index: 1060; width: 40px; height: 40px; display: none;">
+    <i class="fas fa-bars"></i>
+  </button>
+
   <div id="tela-login" class="mt-5 text-center">
     <h2 class="mb-4" style="color: var(--primary)">SISTEMA</h2>
     <div class="card-pedido mx-auto" style="max-width: 350px">
@@ -62,64 +183,76 @@
       <input type="text" id="forn-dia" class="form-control mb-3" placeholder="Dia de Entrega (Ex: Toda Terça)">
       <button class="btn btn-primary w-100" onclick="salvarFornecedor()">Cadastrar Fornecedor</button>
     </div>
-    <div class="card-pedido" id="lista-fornecedores">
-      </div>
+    <div class="card-pedido" id="lista-fornecedores"></div>
   </div>
 
   <div id="modulo-novo-pedido" class="hidden">
-    <h3><i class="fas fa-shopping-cart"></i> Montar Pedido</h3>
-    
+    <div class="d-flex justify-content-between mb-3">
+      <h3>🛒 Novo Pedido</h3>
+      <button class="btn btn-sm btn-outline-secondary" onclick="toggleSidebar()">🔀 Tela Cheia</button>
+    </div>
     <div class="card-pedido">
-      <label class="fw-bold">1. Selecionar Fornecedor</label>
-      <select id="select-fornecedor" class="form-select mt-2" onchange="carregarHistorico()"></select>
+      <select id="select-fornecedor" class="form-select" onchange="carregarHistorico()"></select>
     </div>
 
-    <div class="card-pedido bg-light border-success border-start border-4" id="area-insercao" style="display:none;">
-      <label class="fw-bold text-success mb-2">+ Adicionar Novo Produto ao Histórico</label>
+    <!-- Área de adição manual de itens -->
+    <div class="card-pedido" id="area-insercao" style="display: none;">
+      <h6>➕ Adicionar item manual</h6>
       <div class="row g-2">
-        <div class="col-8"><input type="text" id="novo-item-nome" class="form-control form-control-sm" placeholder="Nome do Produto"></div>
-        <div class="col-4"><input type="number" id="novo-item-preco" class="form-control form-control-sm" placeholder="Preço (R$)"></div>
-        <div class="col-12"><button class="btn btn-sm btn-success w-100" onclick="adicionarLinhaManual()">Adicionar à Lista</button></div>
+        <div class="col-6"><input type="text" id="novo-item-nome" class="form-control" placeholder="Nome do produto"></div>
+        <div class="col-4"><input type="number" id="novo-item-preco" class="form-control" placeholder="Preço unitário"></div>
+        <div class="col-2"><button class="btn btn-primary w-100" onclick="adicionarLinhaManual()"><i class="fas fa-plus"></i></button></div>
       </div>
     </div>
 
-    <div id="itens-historico" class="mb-4"></div>
+    <!-- Tabela de itens -->
+    <div class="table-responsive">
+      <table class="tabela-fina">
+        <thead><tr><th>Produto</th><th style="width:100px">Qtd</th><th style="width:150px">Validade</th><th style="width:80px">Bonif.</th><th></th></tr></thead>
+        <tbody id="itens-historico"></tbody>
+      </table>
+    </div>
 
-    <div class="card-pedido border-danger border-top border-4" id="area-fechamento" style="display:none;">
-      <h5 class="text-danger"><i class="fas fa-file-invoice-dollar"></i> Fechamento</h5>
-      <div class="row g-2 mt-2">
-        <div class="col-6">
-          <label class="small text-muted">Financeiro</label>
-          <select id="ped-financeiro" class="form-select form-select-sm">
-            <option>Boleto a Prazo</option>
-            <option>À Vista (Pix/Dinheiro)</option>
-            <option>Bonificação Total</option>
-          </select>
+    <!-- Área de fechamento -->
+    <div id="area-fechamento" class="hidden mt-3">
+      <div class="card-pedido border-top border-4 border-danger">
+        <div class="row g-2">
+          <div class="col-4"><select id="ped-financeiro" class="form-select form-select-sm"><option>Boleto</option><option>Pix</option></select></div>
+          <div class="col-4"><input id="ped-prazo" class="form-control form-control-sm" placeholder="Prazo"></div>
+          <div class="col-4"><button class="btn-main py-2" onclick="finalizarPedido()">SALVAR</button></div>
         </div>
-        <div class="col-6">
-          <label class="small text-muted">Prazo de Pagamento</label>
-          <input type="text" id="ped-prazo" class="form-control form-control-sm" placeholder="Ex: 15/30 dias">
-        </div>
-        <div class="col-12">
-          <label class="small text-muted">Observações</label>
-          <textarea id="ped-obs" class="form-control form-control-sm" placeholder="Observações para a entrega..."></textarea>
-        </div>
+        <div class="mt-2"><textarea id="ped-obs" class="form-control" rows="2" placeholder="Observações do pedido..."></textarea></div>
       </div>
-      <button class="btn-main bg-danger mt-3" onclick="finalizarPedido()">CONCLUIR E SALVAR PEDIDO</button>
     </div>
   </div>
 
-  <div id="modulo-status" class="hidden">
-    <h3><i class="fas fa-chart-line"></i> Acompanhamento</h3>
-    <button class="btn btn-outline-primary mb-3 w-100" onclick="atualizarTabelaStatus()"><i class="fas fa-sync"></i> Atualizar Tabela</button>
-    <div id="lista-pedidos-status"></div>
+
+<div id="modulo-status" class="hidden"> <h3><i class="fas fa-chart-line"></i> Análise de Pedidos</h3> <div class="row g-3 mb-4"> <div class="col-md-4"><input type="text" id="filtro-fornecedor" class="form-control" placeholder="Filtrar por fornecedor"></div> <div class="col-md-4"><input type="date" id="filtro-data-inicio" class="form-control"></div> <div class="col-md-4"><input type="date" id="filtro-data-fim" class="form-control"></div> </div> <canvas id="graficoPedidos" height="150"></canvas> <div class="table-responsive mt-4"> <table class="table table-striped" id="tabela-pedidos"> <thead><tr><th>ID</th><th>Fornecedor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead> <tbody></tbody> </table> </div> <button class="btn btn-success" onclick="exportarCSV()">Exportar CSV</button> </div>
+
+
+  <div id="modulo-padaria" class="hidden">
+    <h3><i class="fas fa-bread-slice"></i> Produção da Padaria</h3>
+    <div id="lista-ordens-producao"></div>
   </div>
+
 </div>
 
 <div id="nav-bar" class="nav-bottom hidden">
   <div class="nav-item menu-gerente" onclick="mostrarModulo('fornecedores')"><i class="fas fa-truck"></i><br>Forn.</div>
   <div class="nav-item menu-gerente" onclick="mostrarModulo('novo-pedido')"><i class="fas fa-cart-plus"></i><br>Pedido</div>
   <div class="nav-item menu-gerente" onclick="mostrarModulo('status')"><i class="fas fa-chart-pie"></i><br>Status</div>
+</div>
+
+<!-- Modal de detalhes -->
+<div id="modalDetalhes" class="modal-overlay hidden" onclick="fecharModalExterno(event)">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h5 class="mb-0"><i class="fas fa-list-ul me-2"></i> Itens do Pedido</h5>
+      <button class="btn-close-modal" onclick="fecharModal()">&times;</button>
+    </div>
+    <div id="conteudoModal" class="modal-body"></div>
+    <div class="modal-footer"><button class="btn-main" onclick="fecharModal()">Fechar</button></div>
+  </div>
 </div>
 
 <script>
@@ -145,10 +278,10 @@
         document.getElementById('tela-login').classList.add('hidden');
         document.getElementById('sidebar').classList.remove('hidden');
         document.getElementById('nav-bar').classList.remove('hidden');
-        
         if (res.usuario.perfil === 'Gerente') {
           document.querySelectorAll('.menu-gerente').forEach(e => e.classList.remove('hidden'));
           carregarFornecedores();
+          carregarListaFornecedores();
           mostrarModulo('status');
         }
         mostrarToast("Login efetuado!", "success");
@@ -158,27 +291,92 @@
     }).validarLogin(document.getElementById('user').value, document.getElementById('pass').value);
   }
 
-  function mostrarModulo(mod) {
-    if(!sessionToken) return mostrarToast("Faça login primeiro", "error");
-    ['fornecedores','novo-pedido','status'].forEach(id => {
-      let el = document.getElementById('modulo-'+id);
-      if(el) el.classList.add('hidden');
-    });
-    
-    let target = document.getElementById('modulo-'+mod);
-    if(target) target.classList.remove('hidden');
-    
-    if(mod === 'status') atualizarTabelaStatus();
-    if(mod === 'fornecedores') carregarListaFornecedores();
-  }
-
   function forcarAcesso() {
     google.script.run.withSuccessHandler(m => { alert(m); location.reload(); }).forcarAutorizacao();
   }
-  
+
   function logout() { location.reload(); }
 
-  // --- FORNECEDORES ---
+
+  let todosPedidos = [];
+
+function atualizarDashboard() {
+  showLoad(true);
+  google.script.run.withSuccessHandler(pedidos => {
+    todosPedidos = pedidos;
+    aplicarFiltros();
+    showLoad(false);
+  }).getPedidosStatus(sessionToken);
+}
+
+function aplicarFiltros() {
+  const fornecedorFiltro = document.getElementById('filtro-fornecedor').value.toLowerCase();
+  const inicio = document.getElementById('filtro-data-inicio').value;
+  const fim = document.getElementById('filtro-data-fim').value;
+  let filtrados = todosPedidos.filter(p => {
+    if (fornecedorFiltro && !p[1].toLowerCase().includes(fornecedorFiltro)) return false;
+    if (inicio && new Date(p[2]) < new Date(inicio)) return false;
+    if (fim && new Date(p[2]) > new Date(fim)) return false;
+    return true;
+  });
+  renderTabela(filtrados);
+  renderGrafico(filtrados);
+}
+
+function renderTabela(pedidos) {
+  const tbody = document.querySelector('#tabela-pedidos tbody');
+  tbody.innerHTML = pedidos.map(p => `
+    <tr>
+      <td>${p[0]}</td><td>${p[1]}</td><td>${new Date(p[2]).toLocaleDateString()}</td>
+      <td><span class="badge bg-${p[3]==='Entregue'?'success':p[3]==='Pendente'?'warning':'secondary'}">${p[3]}</span></td>
+      <td><button class="btn btn-sm btn-outline-primary" onclick="verDetalhes('${p[0]}')">Detalhes</button></td>
+    </tr>
+  `).join('');
+}
+
+function renderGrafico(pedidos) {
+  const ctx = document.getElementById('graficoPedidos').getContext('2d');
+  const fornecedores = [...new Set(pedidos.map(p => p[1]))];
+  const contagem = fornecedores.map(f => pedidos.filter(p => p[1] === f).length);
+  if (window.meuGrafico) window.meuGrafico.destroy();
+  window.meuGrafico = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: fornecedores, datasets: [{ label: 'Quantidade de Pedidos', data: contagem, backgroundColor: '#4c1130' }] },
+    options: { responsive: true, maintainAspectRatio: true }
+  });
+}
+
+function exportarCSV() {
+  let csv = "ID,Fornecedor,Data,Status,Financeiro,Prazo,Obs\n";
+  todosPedidos.forEach(p => {
+    csv += `"${p[0]}","${p[1]}","${p[2]}","${p[3]}","${p[5] || ''}","${p[4] || ''}","${p[6] || ''}"\n`;
+  });
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'pedidos.csv';
+  link.click();
+}
+
+// Adicionar event listeners aos filtros
+document.getElementById('filtro-fornecedor')?.addEventListener('input', aplicarFiltros);
+document.getElementById('filtro-data-inicio')?.addEventListener('change', aplicarFiltros);
+document.getElementById('filtro-data-fim')?.addEventListener('change', aplicarFiltros);
+
+  function mostrarModulo(mod) {
+    if(!sessionToken) return mostrarToast("Faça login primeiro", "error");
+    ['fornecedores','novo-pedido','status','padaria'].forEach(id => {
+      let el = document.getElementById('modulo-'+id);
+      if(el) el.classList.add('hidden');
+    });
+    let target = document.getElementById('modulo-'+mod);
+    if(target) target.classList.remove('hidden');
+    if(mod === 'status') atualizarTabelaStatus();
+    if(mod === 'fornecedores') carregarListaFornecedores();
+    if(mod === 'padaria') carregarProducao();
+  }
+
+  // ---------- FORNECEDORES ----------
   function salvarFornecedor() {
     const dados = {
       nome: document.getElementById('forn-nome').value,
@@ -194,7 +392,7 @@
       document.getElementById('forn-contato').value = '';
       document.getElementById('forn-dia').value = '';
       carregarListaFornecedores();
-      carregarFornecedores(); 
+      carregarFornecedores();
     }).salvarFornecedor(dados, sessionToken);
   }
 
@@ -202,13 +400,10 @@
     google.script.run.withSuccessHandler(lista => {
       const div = document.getElementById('lista-fornecedores');
       div.innerHTML = "<h6 class='text-muted'>Fornecedores Cadastrados</h6>";
-      
-      // BLINDAGEM CONTRA O ERRO NULL AQUI
       if (!lista || lista.length === 0) {
         div.innerHTML += "<p class='small text-muted'>Nenhum fornecedor cadastrado.</p>";
         return;
       }
-      
       lista.forEach(f => {
         div.innerHTML += `<div class="p-2 border-bottom"><strong>${f.nome}</strong><br><small>Entrega: ${f.diaEntrega} | Tel: ${f.contato}</small></div>`;
       });
@@ -219,81 +414,89 @@
     google.script.run.withSuccessHandler(forns => {
       const sel = document.getElementById('select-fornecedor');
       sel.innerHTML = '<option value="">Selecione o Fornecedor...</option>';
-      
-      // BLINDAGEM CONTRA O ERRO NULL AQUI
       if (!forns || forns.length === 0) return;
-      
       forns.forEach(f => sel.add(new Option(f.nome, f.id)));
     }).getFornecedores(sessionToken);
   }
 
-  // --- PEDIDOS ---
+  // ---------- PEDIDOS ----------
+  function gerarLinhaProduto(container, nome, preco) {
+    const tr = document.createElement('tr');
+    tr.className = "item-row";
+    tr.innerHTML = `
+      <td><b class="prod-nome">${nome}</b><br><small class="text-muted">R$ <span class="prod-preco">${preco}</span></small></td>
+      <td><input type="number" class="form-control input-grid qtd-item" placeholder="0" onchange="calcularTotais()"></td>
+      <td><input type="date" class="form-control input-grid validade-item"></td>
+      <td class="text-center"><input class="form-check-input check-bonif" type="checkbox" onchange="calcularTotais()"></td>
+      <td><i class="fas fa-trash text-danger" onclick="this.closest('tr').remove(); calcularTotais();"></i></td>
+    `;
+    container.prepend(tr);
+    calcularTotais();
+  }
+
   function carregarHistorico() {
     const idForn = document.getElementById('select-fornecedor').value;
-    const div = document.getElementById('itens-historico');
+    const tbody = document.getElementById('itens-historico');
     if (!idForn) { 
-      div.innerHTML = ""; 
+      tbody.innerHTML = ""; 
+      document.getElementById('area-fechamento').classList.add('hidden');
       document.getElementById('area-insercao').style.display = 'none';
-      document.getElementById('area-fechamento').style.display = 'none';
       return; 
     }
-    
     document.getElementById('area-insercao').style.display = 'block';
-    document.getElementById('area-fechamento').style.display = 'block';
+    document.getElementById('area-fechamento').classList.remove('hidden');
     showLoad(true);
-
-    google.script.run.withSuccessHandler(produtos => {
-      div.innerHTML = "";
-      
-      // BLINDAGEM CONTRA O ERRO NULL AQUI
-      if (!produtos || produtos.length === 0) {
-        div.innerHTML = "<p class='text-muted p-3'>Nenhum histórico. Adicione produtos acima.</p>";
-        showLoad(false);
-        return;
+    google.script.run.withSuccessHandler(res => {
+      tbody.innerHTML = "";
+      const produtos = Array.isArray(res) ? res : [];
+      if (produtos.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='5' class='text-center p-4 text-muted'>Sem histórico</td></tr>";
+      } else {
+        produtos.forEach(p => gerarLinhaProduto(tbody, p[2], p[3]));
       }
-      
-      produtos.forEach((p, idx) => {
-        gerarCartaoProduto(div, p[2], p[3], idx);
-      });
       showLoad(false);
     }).getProdutosPorFornecedor(idForn, sessionToken);
   }
 
-  function gerarCartaoProduto(container, nome, preco, index) {
-    const html = `
-      <div class="card-pedido p-3 mb-2 border-start border-4 border-primary item-row">
-        <div class="row align-items-center">
-          <div class="col-12 mb-2">
-            <strong class="prod-nome">${nome}</strong>
-            <span class="float-end text-muted small">R$ <span class="prod-preco">${preco}</span></span>
-          </div>
-          <div class="col-4"><input type="number" class="form-control form-control-sm qtd-item" placeholder="Qtd"></div>
-          <div class="col-4"><input type="text" class="form-control form-control-sm validade-item" placeholder="Validade"></div>
-          <div class="col-4"><div class="form-check form-switch mt-1"><input class="form-check-input check-bonif" type="checkbox"><label class="small">Bonif.</label></div></div>
-        </div>
-      </div>`;
-    container.insertAdjacentHTML('beforeend', html);
-  }
-
   function adicionarLinhaManual() {
     const nome = document.getElementById('novo-item-nome').value.trim();
-    const preco = document.getElementById('novo-item-preco').value || 0;
+    const preco = document.getElementById('novo-item-preco').value;
     if (!nome) return mostrarToast("Digite o nome do produto", "error");
-    
-    const div = document.getElementById('itens-historico');
-    if(div.innerHTML.includes("Nenhum histórico")) div.innerHTML = "";
-    
-    gerarCartaoProduto(div, nome, preco, Date.now());
-    
+    const tbody = document.getElementById('itens-historico');
+    if(tbody.innerHTML.includes("Sem histórico")) tbody.innerHTML = "";
+    gerarLinhaProduto(tbody, nome, preco || 0);
     document.getElementById('novo-item-nome').value = '';
     document.getElementById('novo-item-preco').value = '';
-    mostrarToast("Produto adicionado à lista atual", "success");
+    mostrarToast("Item adicionado!", "success");
+  }
+
+  function calcularTotais() {
+    let totalGeral = 0;
+    document.querySelectorAll('.item-row').forEach(row => {
+      const preco = parseFloat(row.querySelector('.prod-preco').innerText) || 0;
+      const qtd = parseFloat(row.querySelector('.qtd-item').value) || 0;
+      const bonif = row.querySelector('.check-bonif').checked;
+      let totalLinha = bonif ? 0 : preco * qtd;
+      if(!row.querySelector('.total-linha')) {
+        let td = document.createElement('td');
+        td.className = "total-linha";
+        row.appendChild(td);
+      }
+      row.querySelector('.total-linha').innerText = `R$ ${totalLinha.toFixed(2)}`;
+      totalGeral += totalLinha;
+    });
+    let totalSpan = document.getElementById('total-geral-pedido');
+    if(!totalSpan) {
+      let footer = document.querySelector('#modulo-novo-pedido .table-responsive');
+      if(footer) footer.insertAdjacentHTML('afterend', `<div class="text-end fw-bold mt-2">Total: <span id="total-geral-pedido">R$ 0,00</span></div>`);
+      totalSpan = document.getElementById('total-geral-pedido');
+    }
+    if(totalSpan) totalSpan.innerText = `R$ ${totalGeral.toFixed(2)}`;
   }
 
   function finalizarPedido() {
     const sel = document.getElementById('select-fornecedor');
     if (!sel.value) return mostrarToast("Selecione um fornecedor", "error");
-
     const itens = [];
     document.querySelectorAll('.item-row').forEach(row => {
       const qtd = parseFloat(row.querySelector('.qtd-item').value);
@@ -307,9 +510,7 @@
         });
       }
     });
-
-    if (itens.length === 0) return mostrarToast("Adicione quantidades aos produtos!", "error");
-
+    if (itens.length === 0) return mostrarToast("Adicione quantidades!", "error");
     const pedido = {
       idFornecedor: sel.value,
       nomeFornecedor: sel.options[sel.selectedIndex].text,
@@ -318,113 +519,258 @@
       obs: document.getElementById('ped-obs').value,
       itens: itens
     };
-
     showLoad(true);
     google.script.run.withSuccessHandler(id => {
       showLoad(false);
-      mostrarToast(`Pedido salvo com sucesso!`, "success");
-      sel.value = "";
-      carregarHistorico();
-      document.getElementById('ped-prazo').value = "";
-      document.getElementById('ped-obs').value = "";
-      mostrarModulo('status');
+      mostrarToast(`Pedido ${id} salvo!`, "success");
+      location.reload();
     }).salvarPedido(pedido, sessionToken);
   }
 
- function atualizarTabelaStatus() {
+  // ---------- STATUS ----------
+  function atualizarTabelaStatus() {
     showLoad(true);
-    
-    google.script.run
-      .withSuccessHandler(pedidos => {
-        const div = document.getElementById('lista-pedidos-status');
-        
-        if (!pedidos || pedidos.length === 0) { 
-          div.innerHTML = "<p class='text-muted mt-3'>Nenhum pedido foi guardado ainda.</p>"; 
-          showLoad(false); 
-          return; 
-        }
-        
-        div.innerHTML = pedidos.slice().reverse().map(p => {
-          let cor = p[3] === 'Pendente' ? 'bg-warning text-dark' : (p[3] === 'Entregue' ? 'bg-success' : (p[3] === 'Devolvido' ? 'bg-danger' : 'bg-secondary'));
-          
-          // Proteção caso a data (p[2]) venha em branco da planilha
-          let dataFormatada = p[2] ? new Date(p[2]).toLocaleDateString() : "Data Indisponível";
-          
-          return `
-            <div class="card-pedido">
-              <div class="d-flex justify-content-between mb-2">
-                <strong>${p[1]}</strong>
-                <span class="badge-status ${cor}">${p[3] || 'Pendente'}</span>
-              </div>
-              <p class="small text-muted mb-2">ID: ${p[0]}<br>Data: ${dataFormatada} | Finan: ${p[5] || '-'}</p>
-              
-              <div class="d-flex gap-2 mb-2">
-                <button class="btn btn-sm btn-outline-secondary w-100" onclick="verDetalhes('${p[0]}')"><i class="fas fa-list"></i> Ver Itens</button>
-              </div>
-              
-              <div class="bg-light p-2 rounded border">
-                <label class="small fw-bold">Alterar Status:</label>
-                <select class="form-select form-select-sm mb-2" id="sel-status-${p[0]}">
-                  <option value="Pendente" ${p[3] === 'Pendente' ? 'selected' : ''}>Pendente</option>
-                  <option value="Entregue" ${p[3] === 'Entregue' ? 'selected' : ''}>Entregue (Total)</option>
-                  <option value="Parcialmente Entregue" ${p[3] === 'Parcialmente Entregue' ? 'selected' : ''}>Parcialmente Entregue</option>
-                  <option value="Não Entregue" ${p[3] === 'Não Entregue' ? 'selected' : ''}>Não Entregue</option>
-                  <option value="Devolvido" ${p[3] === 'Devolvido' ? 'selected' : ''}>Devolvido</option>
-                </select>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-sm btn-primary w-50" onclick="mudarStatus('${p[0]}')">Salvar Status</button>
-                  <button class="btn btn-sm btn-outline-danger w-50" onclick="excluirPedido('${p[0]}')"><i class="fas fa-trash"></i></button>
-                </div>
-              </div>
-            </div>`;
-        }).join('');
+    google.script.run.withSuccessHandler(pedidos => {
+      const div = document.getElementById('lista-pedidos-status');
+      if (!pedidos || pedidos.length === 0) {
+        div.innerHTML = `<div class="text-center mt-5"><i class="fas fa-box-open fa-3x text-muted mb-3"></i><p class="text-muted">Nenhum pedido encontrado.</p></div>`;
         showLoad(false);
-      })
-      // O SEGREDO ESTÁ AQUI: Captura erros e mostra no ecrã!
-      .withFailureHandler(err => {
-        showLoad(false);
-        const div = document.getElementById('lista-pedidos-status');
-        div.innerHTML = `<div class="alert alert-danger mt-3"><b>Erro no sistema:</b> ${err.message}</div>`;
-        mostrarToast("Erro ao carregar: " + err.message, "error");
-      })
-      .getPedidosStatus(sessionToken);
+        return;
+      }
+      div.innerHTML = pedidos.slice().reverse().map(p => {
+        const statusMap = {
+          'Pendente': { cor: 'warning', icone: 'clock', progresso: '25%' },
+          'Entregue': { cor: 'success', icone: 'check-double', progresso: '100%' },
+          'Parcialmente Entregue': { cor: 'info', icone: 'boxes', progresso: '60%' },
+          'Devolvido': { cor: 'danger', icone: 'undo', progresso: '0%' }
+        };
+        const st = statusMap[p[3]] || { cor: 'secondary', icone: 'question', progresso: '0%' };
+        const dataF = p[2] ? new Date(p[2]).toLocaleDateString() : '---';
+        return `
+          <div class="card-pedido border-0 shadow-sm mb-3">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div><h5 class="fw-bold mb-1" style="color: var(--primary)">${p[1]}</h5><span class="text-muted small"><i class="far fa-calendar-alt me-1"></i> ${dataF} • ID: ${p[0]}</span></div>
+              <span class="badge rounded-pill bg-${st.cor} px-3 py-2"><i class="fas fa-${st.icone} me-1"></i> ${p[3] || 'Pendente'}</span>
+            </div>
+            <div class="progress mb-4" style="height: 6px;"><div class="progress-bar bg-${st.cor}" style="width: ${st.progresso}"></div></div>
+            <div class="row g-2 text-center border-top pt-3">
+              <div class="col-4 border-end"><small class="text-muted">Financeiro</small><span class="fw-bold small">${p[5] || 'A definir'}</span></div>
+              <div class="col-4 border-end"><small class="text-muted">Prazo</small><span class="fw-bold small">${p[4] || '---'}</span></div>
+              <div class="col-4"><button class="btn btn-sm btn-light w-100 text-primary fw-bold" onclick="verDetalhes('${p[0]}')"><i class="fas fa-search-plus"></i> Itens</button></div>
+            </div>
+            <div class="d-flex gap-2 mt-3 pt-2">
+              <button class="btn btn-success btn-sm flex-grow-1" onclick="mudarStatusSimples('${p[0]}', 'Entregue')"><i class="fas fa-check"></i> Receber Tudo</button>
+              <div class="dropdown"><button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Parcialmente Entregue')">Recebimento Parcial</a></li>
+                  <li><a class="dropdown-item text-danger" onclick="mudarStatusSimples('${p[0]}', 'Devolvido')">Marcar Devolvido</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item text-danger" onclick="excluirPedido('${p[0]}')">Excluir Pedido</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+      showLoad(false);
+    }).getPedidosStatus(sessionToken);
   }
-  
 
-  function mudarStatus(id) {
-    const novoStatus = document.getElementById(`sel-status-${id}`).value;
+  function mudarStatusSimples(id, novoStatus) {
+    if(!confirm(`Alterar status para ${novoStatus}?`)) return;
     showLoad(true);
     google.script.run.withSuccessHandler(() => {
-      mostrarToast("Status Atualizado!", "success");
+      mostrarToast("Status atualizado!", "success");
       atualizarTabelaStatus();
     }).alterarStatusPedido(id, novoStatus, sessionToken);
   }
 
-  function verDetalhes(id) {
-    showLoad(true);
-    google.script.run.withSuccessHandler(itens => {
-      showLoad(false);
-      
-      // BLINDAGEM CONTRA O ERRO NULL AQUI
-      if (!itens || itens.length === 0) {
-        alert("Nenhum item encontrado neste pedido.");
-        return;
-      }
-      
-      let msg = "ITENS DO PEDIDO:\n\n";
-      itens.forEach(i => msg += `- ${i[1]} (Qtd: ${i[3]} | R$ ${i[2]})\n  Valid: ${i[5]} | Bonif: ${i[4]}\n\n`);
-      alert(msg);
-    }).getDetalhesPedido(id, sessionToken);
-  }
-
   function excluirPedido(id) {
-    if(!confirm("Tem certeza que deseja excluir o pedido inteiro?")) return;
+    if(!confirm("Excluir pedido permanentemente?")) return;
     showLoad(true);
     google.script.run.withSuccessHandler(() => {
       mostrarToast("Pedido excluído", "success");
       atualizarTabelaStatus();
     }).excluirPedido(id, sessionToken);
   }
+
+  function verDetalhes(id) {
+    showLoad(true);
+    google.script.run.withSuccessHandler(itens => {
+      showLoad(false);
+      const container = document.getElementById('conteudoModal');
+      if (!itens || itens.length === 0) container.innerHTML = "<p class='text-center text-muted'>Nenhum item encontrado.</p>";
+      else {
+        container.innerHTML = itens.map(i => `
+          <div class="item-detalhe">
+            <div><div class="fw-bold text-dark">${i[1]}</div><small class="text-muted">Preço: R$ ${parseFloat(i[2]).toFixed(2)}</small>${i[5] ? `<br><small class="text-danger">Validade: ${new Date(i[5]).toLocaleDateString()}</small>` : ''}</div>
+            <div class="text-end"><span class="badge bg-light text-dark border">Qtd: ${i[3]}</span><br>${i[4] === 'Sim' ? '<span class="badge bg-success mt-1">Bonificado</span>' : ''}</div>
+          </div>`).join('');
+      }
+      document.getElementById('modalDetalhes').classList.remove('hidden');
+    }).getDetalhesPedido(id, sessionToken);
+  }
+
+  function fecharModal() { document.getElementById('modalDetalhes').classList.add('hidden'); }
+  function fecharModalExterno(e) { if (e.target.id === 'modalDetalhes') fecharModal(); }
+
+  // ---------- PADARIA (simples, você pode expandir) ----------
+  function carregarProducao() {
+    // Placeholder – implemente conforme suas necessidades
+    document.getElementById('lista-ordens-producao').innerHTML = '<div class="card-pedido text-center">Módulo em desenvolvimento</div>';
+  }
+
+  // ---------- UTILITÁRIOS ----------
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.querySelector('.main-content').classList.toggle('expanded');
+  }
+
+  // Inicializa listeners para calcular totais
+  document.addEventListener('input', function(e) {
+    if(e.target.classList && e.target.classList.contains('qtd-item')) calcularTotais();
+  });
+
+
+  document.getElementById('menu-toggle')?.addEventListener('click', function() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.querySelector('.main-content').classList.toggle('expanded');
+  localStorage.setItem('sidebarCollapsed', document.getElementById('sidebar').classList.contains('collapsed'));
+});
+
+// Carregar estado salvo
+window.addEventListener('load', function() {
+  const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+  if (collapsed) {
+    document.getElementById('sidebar').classList.add('collapsed');
+    document.querySelector('.main-content').classList.add('expanded');
+  }
+});
+
+let pedidoIdAtual = null;
+let fornecedorIdAtual = null;
+let itensPedidoOriginal = []; // guarda itens do pedido para seleção
+
+function abrirModalFaltantes(pedidoId, fornecedorNome, itens) {
+  pedidoIdAtual = pedidoId;
+  fornecedorIdAtual = fornecedorNome; // na verdade precisamos do ID do fornecedor
+  itensPedidoOriginal = itens;
+  const body = document.getElementById('listaFaltantesBody');
+  body.innerHTML = `<p class="mb-2">Selecione os itens que não foram entregues ou vieram com problema:</p>`;
+  itens.forEach((item, idx) => {
+    body.innerHTML += `
+      <div class="item-faltante mb-2 p-2 border rounded">
+        <div class="d-flex justify-content-between align-items-center">
+          <div><strong>${item.nome}</strong><br><small>Qtd pedida: ${item.qtd}</small></div>
+          <div style="width: 120px;"><input type="number" class="form-control form-control-sm qtd-faltante" data-idx="${idx}" placeholder="Qtd faltante" min="0" max="${item.qtd}"></div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('modalFaltantes').classList.remove('hidden');
+}
+
+function fecharModalFaltantes() {
+  document.getElementById('modalFaltantes').classList.add('hidden');
+  pedidoIdAtual = null;
+}
+
+function confirmarFaltantes() {
+  const faltantes = [];
+  document.querySelectorAll('#listaFaltantesBody .item-faltante').forEach((div, idx) => {
+    const qtdInput = div.querySelector('.qtd-faltante');
+    const qtd = parseInt(qtdInput.value);
+    if (qtd > 0) {
+      const nome = div.querySelector('strong').innerText;
+      faltantes.push({ nome, qtdFaltante: qtd });
+    }
+  });
+  if (faltantes.length === 0) {
+    fecharModalFaltantes();
+    return;
+  }
+  showLoad(true);
+  google.script.run.withSuccessHandler(() => {
+    mostrarToast(`${faltantes.length} itens registrados como pendentes.`, "success");
+    fecharModalFaltantes();
+    // Agora muda o status do pedido
+    mudarStatusPedido(pedidoIdAtual, 'Parcialmente Entregue');
+  }).registrarItensFaltantes(pedidoIdAtual, fornecedorIdAtual, faltantes, sessionToken);
+}
+
+function mudarStatusSimples(id, novoStatus) {
+  if (novoStatus === 'Parcialmente Entregue' || novoStatus === 'Devolvido') {
+    // Buscar itens do pedido para mostrar quais faltaram
+    google.script.run.withSuccessHandler(itens => {
+      const itensFormatados = itens.map(i => ({ nome: i[1], qtd: i[3] }));
+      // precisamos também do fornecedor ID. Vamos buscar do pedido ou armazenar no front.
+      // Por simplicidade, armazenamos o fornecedorId ao listar os pedidos.
+      // Vamos modificar a função atualizarTabelaStatus para guardar fornecedorId em um atributo data.
+      const fornecedorId = document.querySelector(`.card-pedido[data-pedido-id="${id}"]`)?.dataset.fornecedorId;
+      if (fornecedorId) {
+        abrirModalFaltantes(id, fornecedorId, itensFormatados);
+      } else {
+        alert("Erro: não foi possível identificar o fornecedor.");
+      }
+    }).getDetalhesPedido(id, sessionToken);
+    return;
+  }
+  // Para outros status, muda diretamente
+  if(!confirm(`Alterar status para ${novoStatus}?`)) return;
+  showLoad(true);
+  google.script.run.withSuccessHandler(() => {
+    mostrarToast("Status atualizado!", "success");
+    atualizarTabelaStatus();
+  }).alterarStatusPedido(id, novoStatus, sessionToken);
+}
+
+function verificarItensPendentes(fornecedorId) {
+  google.script.run.withSuccessHandler(itensPendentes => {
+    if (itensPendentes && itensPendentes.length > 0) {
+      mostrarToast(`⚠️ ${itensPendentes.length} itens pendentes do pedido anterior.`, "info");
+      // Adicionar botão flutuante ou no topo da tela
+      let btnDiv = document.getElementById('btn-incluir-pendentes');
+      if (!btnDiv) {
+        btnDiv = document.createElement('div');
+        btnDiv.id = 'btn-incluir-pendentes';
+        btnDiv.className = 'position-fixed bottom-50 end-0 m-3 z-3';
+        btnDiv.innerHTML = `<button class="btn btn-warning rounded-circle shadow" style="width: 56px; height: 56px;" onclick="incluirPendentes()"><i class="fas fa-exclamation-triangle"></i></button>`;
+        document.body.appendChild(btnDiv);
+      }
+      window.itensPendentesAtuais = itensPendentes;
+    } else {
+      const btnDiv = document.getElementById('btn-incluir-pendentes');
+      if (btnDiv) btnDiv.remove();
+    }
+  }).getItensFaltantesPorFornecedor(fornecedorId, sessionToken);
+}
+
+function incluirPendentes() {
+  if (!window.itensPendentesAtuais || window.itensPendentesAtuais.length === 0) return;
+  const tbody = document.getElementById('itens-historico');
+  window.itensPendentesAtuais.forEach(item => {
+    // Adiciona cada item pendente na tabela, com quantidade faltante como sugestão
+    gerarLinhaProduto(tbody, item.produto, 0); // preço pode ser buscado depois? Ou deixar 0 e usuário ajusta
+    const lastRow = tbody.firstChild;
+    if (lastRow) {
+      const qtdInput = lastRow.querySelector('.qtd-item');
+      if (qtdInput) qtdInput.value = item.quantidade;
+      // Marcar como bonificado? Talvez não.
+    }
+  });
+  mostrarToast("Itens pendentes adicionados. Ajuste quantidades e preços se necessário.", "success");
+  const btnDiv = document.getElementById('btn-incluir-pendentes');
+  if (btnDiv) btnDiv.remove();
+  // Opcional: marcar como resolvidos automaticamente? Melhor deixar o usuário confirmar depois.
+}
+
 </script>
+
+<div id="modalFaltantes" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width: 600px;">
+    <div class="modal-header"><h5>Itens não recebidos</h5><button class="btn-close-modal" onclick="fecharModalFaltantes()">&times;</button></div>
+    <div class="modal-body" id="listaFaltantesBody"></div>
+    <div class="modal-footer"><button class="btn-main" onclick="confirmarFaltantes()">Registrar Pendências</button></div>
+  </div>
+</div>
+
 </body>
 </html>
