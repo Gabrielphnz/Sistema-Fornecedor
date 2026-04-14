@@ -783,13 +783,6 @@ function salvarItensFaltantes() {
 
 </script>
 
-<div id="modalFaltantes" class="modal-overlay hidden">
-  <div class="modal-card" style="max-width: 600px;">
-    <div class="modal-header"><h5>Itens não recebidos</h5><button class="btn-close-modal" onclick="fecharModalFaltantes()">&times;</button></div>
-    <div class="modal-body" id="listaFaltantesBody"></div>
-    <div class="modal-footer"><button class="btn-main" onclick="confirmarFaltantes()">Registrar Pendências</button></div>
-  </div>
-</div>
 
 <div id="modalFaltantes" class="modal-overlay hidden" onclick="if(event.target.id === 'modalFaltantes') fecharModalFaltantes()">
   <div class="modal-card" style="max-width: 600px; width: 95%;">
