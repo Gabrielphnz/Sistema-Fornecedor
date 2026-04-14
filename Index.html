@@ -4,52 +4,44 @@
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
- <style>
-  :root { --primary: #4c1130; --bg: #f0f2f5; }
-  body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; min-height: 100vh; }
+    <style>
+      :root { --primary: #4c1130; --bg: #f0f2f5; }
+      body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; min-height: 100vh; }
 
-  /* CABEÇALHO - Corrigido para não ficar transparente */
-  .app-header { background: var(--primary); color: white; padding: 15px; border-radius: 0 0 15px 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+      .app-header { background: var(--primary); color: white; padding: 15px; border-radius: 0 0 15px 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
-  /* SIDEBAR PC - Ajustado posicionamento e z-index */
-  .sidebar { width: 250px; position: fixed; top: 0; left: 0; height: 100%; background: var(--primary); color: white; padding: 25px; z-index: 1050; display: none; border-right: 1px solid rgba(255,255,255,0.1); }
-  .sidebar h4 { font-weight: bold; margin-bottom: 25px; }
-  .sidebar a { color: rgba(255,255,255,0.8); text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; }
-  .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
+      .sidebar { width: 250px; position: fixed; top: 0; left: 0; height: 100%; background: var(--primary); color: white; padding: 25px; z-index: 1050; display: none; border-right: 1px solid rgba(255,255,255,0.1); }
+      .sidebar h4 { font-weight: bold; margin-bottom: 25px; }
+      .sidebar a { color: rgba(255,255,255,0.8); text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; }
+      .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
 
-  /* NAV MOBILE - Fixado na base com padding para não cortar o conteúdo */
-  .nav-bottom { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 5px; border-top: 1px solid #ddd; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-  .nav-item { text-align: center; font-size: 11px; color: #777; text-decoration: none; cursor: pointer; flex: 1; }
-  .nav-item.active { color: var(--primary); font-weight: bold; }
+      .nav-bottom { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 5px; border-top: 1px solid #ddd; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+      .nav-item { text-align: center; font-size: 11px; color: #777; text-decoration: none; cursor: pointer; flex: 1; }
+      .nav-item.active { color: var(--primary); font-weight: bold; }
 
-  /* CONTEÚDO PRINCIPAL - Padding inferior evita que a nav cubra os botões */
-  .main-content { padding: 15px; padding-bottom: 90px; min-height: 100vh; transition: 0.3s; }
-  .card-pedido { background: white; border-radius: 15px; padding: 22px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: none; }
-  
-  /* CLASSE PARA ESCONDER ELEMENTOS */
-  .hidden { display: none !important; }
-  
-  /* BOTÕES LARGOS PARA TELEMÓVEL */
-  .btn-main { background: var(--primary); color: white; border-radius: 10px; padding: 15px; border: none; width: 100%; font-weight: bold; font-size: 16px; transition: 0.3s; cursor: pointer; }
-  .btn-main:active { transform: scale(0.98); }
+      .main-content { padding: 15px; padding-bottom: 90px; min-height: 100vh; transition: 0.3s; }
+      .card-pedido { background: white; border-radius: 15px; padding: 22px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: none; }
+      
+      .hidden { display: none !important; }
+      
+      .btn-main { background: var(--primary); color: white; border-radius: 10px; padding: 15px; border: none; width: 100%; font-weight: bold; font-size: 16px; transition: 0.3s; cursor: pointer; }
+      .btn-main:active { transform: scale(0.98); }
 
-  /* AJUSTE RESPONSIVO PARA PC */
-  @media (min-width: 768px) {
-    .sidebar { display: block; }
-    .nav-bottom { display: none; }
-    .main-content { margin-left: 250px; padding: 40px; }
-    .card-pedido { max-width: 800px; }
-  }
+      @media (min-width: 768px) {
+        .sidebar { display: block; }
+        .nav-bottom { display: none; }
+        .main-content { margin-left: 250px; padding: 40px; }
+        .card-pedido { max-width: 800px; }
+      }
 
-  /* Extras para listas e switches */
-  .item-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-  .status-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; }
-  .form-switch .form-check-input { width: 2.5em; height: 1.2em; cursor: pointer; }
-</style>
+      .item-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+      .status-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; }
+      .form-switch .form-check-input { width: 2.5em; height: 1.2em; cursor: pointer; }
+    </style>
   </head>
   <body>
 
-<div id="sidebar" class="sidebar hidden">
+    <div id="sidebar" class="sidebar hidden">
       <h4>MERCADO 1.0</h4>
       <hr>
       <a href="#" class="menu-gerente" onclick="mostrarModulo('novo-pedido')">🛒 Novo Pedido</a>
@@ -66,23 +58,35 @@
         <div class="card-pedido mx-auto" style="max-width: 400px">
           <input type="text" id="user" class="form-control mb-3" placeholder="Usuário">
           <input type="password" id="pass" class="form-control mb-3" placeholder="Senha">
+          
           <button class="btn-main" onclick="login()">ENTRAR</button>
+          <hr>
+          <small class="text-muted">A tela não sai do login?</small><br>
+          <button class="btn btn-sm btn-link" onclick="forcar()">🔓 Desbloquear Acesso</button>
         </div>
       </div>
 
       <div id="modulo-novo-pedido" class="hidden">
         <h3>📦 Novo Pedido</h3>
         <div class="card-pedido">
-          <select id="select-fornecedor" class="form-select mb-3" onchange="carregarHistorico()"></select>
+          <select id="select-fornecedor" class="form-select mb-3" onchange="carregarHistorico()">
+            <option value="">Selecione o Fornecedor...</option>
+          </select>
           <div id="itens-historico"></div>
+          
+          <hr>
+          <h6>+ Adicionar Item Manual</h6>
+          <input type="text" id="novo-item-nome" class="form-control mb-2" placeholder="Nome do Produto">
+          <button class="btn btn-sm btn-outline-primary mb-3" onclick="adicionarLinhaManual()">Incluir na lista</button>
+          
+          <textarea id="obs-pedido" class="form-control mb-3" placeholder="Observações/Prazo"></textarea>
           <button class="btn-main mt-3" onclick="finalizarPedido()">SALVAR PEDIDO</button>
         </div>
       </div>
 
       <div id="modulo-padaria" class="hidden">
         <h3>🥖 Produção da Padaria</h3>
-        <div id="lista-ordens-producao">
-           </div>
+        <div id="lista-ordens-producao"></div>
       </div>
 
       <div id="modulo-status" class="hidden">
@@ -99,33 +103,49 @@
     </div>
 
     <script>
- 
- 
-    function login() {
-  const u = document.getElementById('user').value;
-  const p = document.getElementById('pass').value;
-  
-  // Exibe um carregando simples
-  document.querySelector('.btn-main').innerText = "AUTENTICANDO...";
+      function login() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        
+        document.querySelector('.btn-main').innerText = "AUTENTICANDO...";
 
-  google.script.run
-    .withSuccessHandler(function(res) {
-      document.querySelector('.btn-main').innerText = "ENTRAR";
-      if(res.sucesso) {
-        // ... sua lógica de sucesso ...
-      } else {
-        alert(res.mensagem);
+        google.script.run
+          .withSuccessHandler(function(res) {
+            document.querySelector('.btn-main').innerText = "ENTRAR";
+            if(res.sucesso) {
+              document.getElementById('tela-login').classList.add('hidden');
+              document.getElementById('nav-bar').classList.remove('hidden');
+              document.getElementById('sidebar').classList.remove('hidden');
+              
+              if(res.usuario.perfil === 'Gerente') {
+                carregarFornecedores();
+                mostrarModulo('novo-pedido');
+              } else {
+                // Esconde menus de gerente se for operador
+                document.querySelectorAll('.menu-gerente').forEach(el => el.classList.add('hidden'));
+                mostrarModulo('padaria');
+              }
+            } else {
+              alert(res.mensagem);
+            }
+          })
+          .withFailureHandler(function(err) {
+            document.querySelector('.btn-main').innerText = "ENTRAR";
+            alert("Erro crítico de permissão: " + err.message);
+          })
+          .validarLogin(u, p);
       }
-    })
-    .withFailureHandler(function(err) {
-      document.querySelector('.btn-main').innerText = "ENTRAR";
-      alert("Erro crítico: " + err.message);
-    })
-    .validarLogin(u, p);
-}
+
+
+      function carregarFornecedores() {
+        google.script.run.withSuccessHandler(function(forns) {
+          const sel = document.getElementById('select-fornecedor');
+          sel.innerHTML = '<option value="">Selecione o Fornecedor...</option>';
+          forns.forEach(f => sel.add(new Option(f.nome, f.id)));
+        }).getFornecedores();
+      }
 
       function mostrarModulo(mod) {
-        // Esconde tudo primeiro
         ['modulo-novo-pedido', 'modulo-status', 'modulo-padaria'].forEach(id => {
           document.getElementById(id).classList.add('hidden');
         });
@@ -138,6 +158,8 @@
       function carregarHistorico() {
         const idForn = document.getElementById('select-fornecedor').value;
         const container = document.getElementById('itens-historico');
+        if(!idForn) { container.innerHTML = ""; return; }
+
         container.innerHTML = "Buscando histórico...";
         
         google.script.run.withSuccessHandler(function(produtos) {
@@ -146,7 +168,7 @@
             container.innerHTML += `
               <div class="card-pedido p-2 mb-2">
                 <div class="row align-items-center">
-                  <div class="col-6"><strong>${p[2]}</strong></div>
+                  <div class="col-6"><strong>${p[2]}</strong><br><small class="text-muted">R$ ${p[3]}</small></div>
                   <div class="col-6">
                     <div class="form-check form-switch float-end">
                       <input class="form-check-input check-bonif" type="checkbox" id="bonif-${index}">
@@ -162,6 +184,61 @@
         }).getProdutosPorFornecedor(idForn);
       }
 
+      function adicionarLinhaManual() {
+        const nome = document.getElementById('novo-item-nome').value;
+        if (!nome) return alert("Digite o nome do produto");
+        
+        const container = document.getElementById('itens-historico');
+        const novaLinha = `
+          <div class="card-pedido p-2 mb-2 border-start border-4 border-primary">
+            <div class="row align-items-center">
+              <div class="col-6 text-primary"><strong>* ${nome}</strong></div>
+              <div class="col-6">
+                <div class="form-check form-switch float-end">
+                  <input class="form-check-input check-bonif" type="checkbox">
+                  <label class="small">Bonif.</label>
+                </div>
+              </div>
+              <div class="col-12 mt-2">
+                <input type="number" class="form-control qtd-item" data-nome="${nome}" data-preco="0" placeholder="Quantidade">
+              </div>
+            </div>
+          </div>`;
+        container.insertAdjacentHTML('afterbegin', novaLinha);
+        document.getElementById('novo-item-nome').value = "";
+      }
+
+      function finalizarPedido() {
+        const fornecedor = document.getElementById('select-fornecedor').value;
+        const obs = document.getElementById('obs-pedido').value;
+        const inputs = document.querySelectorAll('.qtd-item');
+        
+        let itens = [];
+        inputs.forEach(input => {
+          if (input.value > 0) {
+            // Verifica o checkbox de bonificado mais próximo a este input
+            const card = input.closest('.row');
+            const chk = card.querySelector('.check-bonif');
+            const isBonif = (chk && chk.checked) ? "Sim" : "Não";
+
+            itens.push({
+              nome: input.dataset.nome,
+              preco: input.dataset.preco,
+              qtd: input.value,
+              bonificado: isBonif,
+              validade: ""
+            });
+          }
+        });
+
+        if (itens.length === 0) return alert("Adicione pelo menos um item com quantidade válida!");
+
+        google.script.run.withSuccessHandler(function(id) {
+          alert("Pedido " + id + " gerado com sucesso!");
+          mostrarModulo('status');
+        }).salvarPedido({fornecedor: fornecedor, obs: obs, itens: itens, prazo: "A combinar"});
+      }
+
       function carregarProducao() {
         google.script.run.withSuccessHandler(function(ordens) {
           const container = document.getElementById('lista-ordens-producao');
@@ -169,7 +246,7 @@
           ordens.forEach(o => {
             container.innerHTML += `
               <div class="card-pedido border-start border-4 border-warning">
-                <h5>${o[1]} - ${o[2]}</h5>
+                <h5>${o[1]} - Ordem #${o[0]}</h5>
                 <p>Status: ${o[3]}</p>
                 <div class="d-flex gap-2">
                   <button class="btn btn-success w-50" onclick="finalizarOrdem('${o[0]}', 'Sucesso')">CONCLUÍDO</button>
@@ -182,6 +259,8 @@
 
       function reportarErro(id) {
         const motivo = prompt("Motivo: 1-Faltou Mercadoria | 2-Faltou Tempo | 3-Outro");
+        if(!motivo) return; // Cancelou o prompt
+        
         const obs = prompt("Observação adicional:");
         let motivoTexto = (motivo == "1") ? "Faltou Mercadoria" : (motivo == "2") ? "Faltou Tempo" : "Outro";
         
@@ -190,7 +269,6 @@
           carregarProducao();
         }).registrarProducao(id, "PRODUTO_GERAL", "Falha", motivoTexto, obs);
       }
-      
       
       function atualizarTabelaStatus() {
         google.script.run.withSuccessHandler(function(pedidos) {
@@ -205,56 +283,12 @@
                 </div>
                 <small class="text-muted">ID: ${p[0]} | Data: ${new Date(p[2]).toLocaleDateString()}</small>
                 <div class="mt-2">
-                   <button class="btn btn-sm btn-outline-secondary">Editar</button>
-                   <button class="btn btn-sm btn-success">Recebido</button>
+                   <button class="btn btn-sm btn-outline-secondary">Ver</button>
                 </div>
               </div>`;
           });
         }).getPedidosStatus();
       }
-      
-      // Adiciona um item que não está no histórico
-          function adicionarLinhaManual() {
-            const nome = document.getElementById('novo-item-nome').value;
-            if (!nome) return alert("Digite o nome do produto");
-            
-            const container = document.getElementById('itens-historico');
-            const novaLinha = `
-              <div class="item-row row">
-                <div class="col-7 text-primary"><strong>* ${nome}</strong></div>
-                <div class="col-5"><input type="number" class="form-control qtd-item" data-nome="${nome}" data-preco="0" placeholder="Qtd"></div>
-              </div>`;
-            container.insertAdjacentHTML('afterbegin', novaLinha);
-            document.getElementById('novo-item-nome').value = "";
-          }
-
-          // Coleta os dados da tela e envia para o Google Sheets
-          function finalizarPedido() {
-            const fornecedor = document.getElementById('select-fornecedor').value;
-            const obs = document.getElementById('obs-pedido').value;
-            const inputs = document.querySelectorAll('.qtd-item');
-            
-            let itens = [];
-            inputs.forEach(input => {
-              if (input.value > 0) {
-                itens.push({
-                  nome: input.dataset.nome,
-                  preco: input.dataset.preco,
-                  qtd: input.value,
-                  bonificado: "Não", // Aqui você pode adicionar um checkbox no HTML depois
-                  validade: ""
-                });
-              }
-            });
-
-            if (itens.length === 0) return alert("Adicione pelo menos um item!");
-
-            google.script.run.withSuccessHandler(function(id) {
-              alert("Pedido " + id + " gerado com sucesso!");
-              mostrarModulo('status');
-            }).salvarPedido({fornecedor, obs, itens, prazo: "A combinar"});
-          }
-      // Outras funções de salvar e adicionar itens seguirão a mesma lógica...
     </script>
   </body>
 </html>
