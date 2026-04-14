@@ -1,279 +1,337 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
-    :root { --primary: #4c1130; --primary-light: #751a4b; --bg: #f4f6f9; --toast-bg: #2d3436; --card-bg: #ffffff; }
-    body { background-color: var(--bg); font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; min-height: 100vh; color: #333; }
-    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1100; }
-    .toast-custom { background: var(--toast-bg); color: white; border-radius: 12px; padding: 14px 24px; margin-top: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: fadein 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 12px; font-weight: 500; }
-    @keyframes fadein { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    .sidebar { width: 260px; position: fixed; top: 0; left: 0; height: 100%; background: linear-gradient(180deg, var(--primary) 0%, #2b091b 100%); color: white; padding: 30px 20px; z-index: 1050; border-right: none; box-shadow: 4px 0 15px rgba(0,0,0,0.1); transition: margin-left 0.3s ease; }
-    .sidebar.collapsed { margin-left: -260px; }
-    .sidebar h4 { font-weight: 800; margin-bottom: 35px; letter-spacing: 1px; text-transform: uppercase; font-size: 1.2rem; text-align: center;}
-    .sidebar a { color: rgba(255,255,255,0.7); text-decoration: none; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; margin-bottom: 8px; transition: all 0.3s ease; font-weight: 500; cursor: pointer; }
-    .sidebar a i { width: 20px; text-align: center; font-size: 1.1rem; }
-    .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; transform: translateX(5px); }
-    .main-content { transition: margin-left 0.3s ease; padding: 20px; padding-bottom: 110px; margin-left: 260px; min-height: 100vh; }
-    .main-content.expanded { margin-left: 0 !important; }
-    .nav-bottom { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 10px 5px 25px 5px; z-index: 1000; box-shadow: 0 -5px 20px rgba(0,0,0,0.06); border-radius: 24px 24px 0 0; }
-    .nav-item { text-align: center; font-size: 11px; color: #888; text-decoration: none; cursor: pointer; flex: 1; transition: 0.3s; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .nav-item i { font-size: 22px; margin-bottom: 4px; display: block; transition: 0.3s; }
-    .nav-item:hover, .nav-item:active { color: var(--primary); }
-    .card-pedido { background: var(--card-bg); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-    .btn-main { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border-radius: 12px; padding: 15px; border: none; width: 100%; font-weight: 700; font-size: 16px; transition: all 0.3s ease; box-shadow: 0 6px 15px rgba(76, 17, 48, 0.25); cursor: pointer; }
-    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(76, 17, 48, 0.4); color: white; }
-    .form-control, .form-select { border-radius: 12px; padding: 12px 16px; border: 1.5px solid #e2e8f0; background-color: #f8fafc; transition: all 0.3s ease; font-size: 15px; }
-    .form-control:focus, .form-select:focus { border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(76, 17, 48, 0.1); outline: none; }
-    .tabela-fina { width: 100%; border-spacing: 0 5px; border-collapse: separate; }
-    .tabela-fina tr { background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .tabela-fina td, .tabela-fina th { padding: 10px; vertical-align: middle; }
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; }
-    .modal-card { background: white; width: 90%; max-width: 600px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: modalIn 0.3s ease-out; }
-    @keyframes modalIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-    .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; color: var(--primary); }
-    .btn-close-modal { background: none; border: none; font-size: 28px; color: #999; cursor: pointer; }
-    .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
-    .item-detalhe { padding: 12px; border-bottom: 1px solid #f8f9fa; display: flex; justify-content: space-between; align-items: center; }
-    .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); backdrop-filter: blur(5px); z-index: 2000; display: flex; align-items: center; justify-content: center; visibility: hidden; }
+    :root { --primary: #4c1130; --primary-light: #751a4b; --bg: #f4f6f9; --card-bg: #ffffff; }
+    body { background-color: var(--bg); font-family: 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+
+    /* TOAST & SPINNER */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+    .toast-custom { background: #2d3436; color: white; border-radius: 12px; padding: 14px 24px; margin-top: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 12px; font-weight: 500; }
+    .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center; visibility: hidden; }
     .spinner-border { width: 3.5rem; height: 3.5rem; border-width: 4px; color: var(--primary); }
+
+    /* SIDEBAR & TOGGLE */
+    .sidebar { width: 260px; position: fixed; top: 0; left: 0; height: 100%; background: linear-gradient(180deg, var(--primary) 0%, #2b091b 100%); color: white; padding: 70px 20px 20px 20px; z-index: 1050; transition: transform 0.3s ease; box-shadow: 4px 0 15px rgba(0,0,0,0.1); }
+    .sidebar.collapsed { transform: translateX(-100%); }
+    .sidebar h4 { font-weight: 800; margin-bottom: 30px; letter-spacing: 1px; text-transform: uppercase; font-size: 1.2rem; text-align: center; }
+    .sidebar a { color: rgba(255,255,255,0.7); text-decoration: none; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; margin-bottom: 8px; transition: all 0.3s ease; font-weight: 500; cursor: pointer; }
+    .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+    #menu-toggle { position: fixed; top: 15px; left: 15px; z-index: 2000; width: 45px; height: 45px; border-radius: 50%; background: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: var(--primary); font-size: 1.2rem; cursor: pointer; }
+
+    .main-content { padding: 80px 20px 20px 20px; min-height: 100vh; transition: margin-left 0.3s ease; }
+    @media (min-width: 769px) {
+      .sidebar { transform: translateX(0); }
+      .sidebar.collapsed { transform: translateX(-100%); }
+      .main-content { margin-left: 260px; }
+      .main-content.expanded { margin-left: 0; }
+    }
+
+    /* CARDS & UI */
+    .card-pedido { background: var(--card-bg); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.02); }
+    .btn-main { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border-radius: 10px; padding: 12px; border: none; font-weight: 700; transition: 0.3s; box-shadow: 0 4px 10px rgba(76, 17, 48, 0.2); }
+    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(76, 17, 48, 0.3); color: white; }
+    .form-control, .form-select { border-radius: 10px; padding: 10px 14px; border: 1px solid #e2e8f0; background-color: #f8fafc; }
+    .form-control:focus, .form-select:focus { border-color: var(--primary-light); box-shadow: none; outline: none; }
+
+    /* MODALS */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; }
+    .modal-card { background: white; width: 95%; max-width: 700px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column; }
+    .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 20px; overflow-y: auto; }
+    .modal-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #eee; border-radius: 0 0 16px 16px; display: flex; justify-content: flex-end; gap: 10px; }
+
     .hidden { display: none !important; }
-    @media (max-width: 768px) { .sidebar { display: none; } .main-content { margin-left: 0 !important; } }
-    .dropdown-menu { z-index: 2000 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important; border-radius: 12px !important; }
-    .table-responsive { overflow: visible !important; }
-    .badge-falta { background-color: #dc3545; color: white; font-size: 0.7rem; margin-left: 5px; }
-    .alert-falta { background-color: #fff3cd; border-left: 4px solid #ffc107; }
-    canvas { max-height: 300px; }
-    @media (max-width: 768px) { #menu-toggle { display: block; } }
-    @media (min-width: 769px) { .sidebar.collapsed + .main-content #menu-toggle { display: block; } .sidebar:not(.collapsed) + .main-content #menu-toggle { display: none; } }
+    .dropdown-menu { z-index: 2000 !important; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
 
+<button id="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
 <div id="spinner" class="spinner-overlay"><div class="spinner-border" role="status"></div></div>
 <div id="toastContainer" class="toast-container"></div>
 
 <div id="sidebar" class="sidebar hidden">
-  
   <h4>MERCADO 1.0</h4>
-  <a class="menu-gerente" onclick="mostrarModulo('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</a>
-  <a class="menu-gerente" onclick="mostrarModulo('fornecedores')"><i class="fas fa-truck"></i> Fornecedores</a>
-  <a class="menu-gerente" onclick="mostrarModulo('novo-pedido')"><i class="fas fa-shopping-cart"></i> Novo Pedido</a>
-  <a class="menu-gerente" onclick="mostrarModulo('status')"><i class="fas fa-chart-line"></i> Acompanhamento</a>
-  <a class="menu-gerente" onclick="mostrarModulo('trocas')"><i class="fas fa-exchange-alt"></i> Trocas/Devoluções</a>
-  <a class="menu-operador" onclick="mostrarModulo('padaria')"><i class="fas fa-bread-slice"></i> Padaria</a>
+  <a onclick="mostrarModulo('novo-pedido')"><i class="fas fa-cart-plus"></i> Novo Pedido</a>
+  <a onclick="mostrarModulo('status')"><i class="fas fa-chart-line"></i> Gestor de Pedidos</a>
+  <a onclick="mostrarModulo('fornecedores')"><i class="fas fa-truck"></i> Fornecedores</a>
+  <a onclick="mostrarModulo('trocas')"><i class="fas fa-exchange-alt"></i> Trocas e Devol.</a>
   <hr><a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
 </div>
 
-<div class="main-content">
-  <div id="alertas-prazos" class="alertas-container" style="position: relative; margin-bottom: 20px;"></div>
-  <button id="menu-toggle" class="btn btn-light rounded-circle shadow-sm position-fixed" style="top: 15px; left: 15px; z-index: 1060; width: 40px; height: 40px; display: none;">
-    <i class="fas fa-bars"></i>
-  </button>
-
+<div class="main-content" id="main-content">
   <div id="tela-login" class="mt-5 text-center">
-    <h2 class="mb-4" style="color: var(--primary)">SISTEMA</h2>
+    <h2 class="mb-4" style="color: var(--primary)">SISTEMA MERCADO</h2>
     <div class="card-pedido mx-auto" style="max-width: 350px">
       <input type="text" id="user" class="form-control mb-3" placeholder="Usuário">
       <input type="password" id="pass" class="form-control mb-3" placeholder="Senha">
-      <button class="btn-main" onclick="login()">ENTRAR</button>
-      <hr><button class="btn btn-sm btn-link" onclick="forcarAcesso()">🔓 Desbloquear Acesso</button>
+      <button class="btn-main w-100" onclick="login()">ENTRAR</button>
     </div>
   </div>
-
-  <!-- MÓDULO DASHBOARD -->
-<div id="modulo-dashboard" class="hidden">
-  <h3><i class="fas fa-chart-pie"></i> Dashboard</h3>
-  <div class="row">
-    <div class="col-md-6">
-      <div class="card-pedido"><canvas id="graficoPedidosFornecedor"></canvas></div>
-    </div>
-    <div class="col-md-6">
-      <div class="card-pedido"><h5>🏆 Ranking de Fornecedores (menos falhas)</h5><div id="ranking-fornecedores"></div></div>
-    </div>
-  </div>
-  <div class="card-pedido"><h5>📊 Indicadores</h5><div id="indicadores-gerais"></div></div>
-</div>
 
   <div id="modulo-fornecedores" class="hidden">
-    <h3><i class="fas fa-truck"></i> Gestão de Fornecedores</h3>
-    <div class="card-pedido border-primary border-top border-4">
-      <h5>Novo Fornecedor</h5>
-      <input type="text" id="forn-nome" class="form-control mb-2" placeholder="Nome da Empresa">
-      <input type="text" id="forn-contato" class="form-control mb-2" placeholder="Telefone/Contato (WhatsApp)">
-      <input type="text" id="forn-dia" class="form-control mb-3" placeholder="Dia de Entrega">
-      <button class="btn btn-primary w-100" onclick="salvarFornecedor()">Cadastrar Fornecedor</button>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3><i class="fas fa-truck text-primary"></i> Fornecedores</h3>
+      <button class="btn btn-success" onclick="abrirModalFornecedor()"><i class="fas fa-plus"></i> Novo Fornecedor</button>
     </div>
-    <div class="card-pedido" id="lista-fornecedores"></div>
+    <div class="card-pedido">
+      <input type="text" id="busca-forn" class="form-control mb-3" placeholder="Pesquisar fornecedor..." onkeyup="filtrarFornecedores()">
+      <div id="lista-fornecedores" class="row g-3"></div>
+    </div>
   </div>
 
-<div id="modulo-novo-pedido" class="hidden">
-  <div class="d-flex justify-content-between mb-3">
-    <h3>🛒 Novo Pedido</h3>
-    <button class="btn btn-sm btn-outline-secondary" onclick="toggleSidebar()">🔀 Tela Cheia</button>
-  </div>
-  <div class="card-pedido">
-    <select id="select-fornecedor" class="form-select" onchange="carregarHistorico()"></select>
-  </div>
-  
-  <!-- Área de adição de itens estilo "card" -->
-  <div class="card-pedido" id="area-insercao" style="display: none;">
-    <h6>➕ Adicionar item</h6>
-    <div class="row g-2">
-      <div class="col-5"><input type="text" id="novo-item-nome" class="form-control" placeholder="Nome do produto" list="listaProdutosSugeridos"><datalist id="listaProdutosSugeridos"></datalist></div>
-      <div class="col-3"><input type="number" id="novo-item-preco" class="form-control" placeholder="Preço"></div>
-      <div class="col-2"><input type="number" id="novo-item-qtd" class="form-control" placeholder="Qtd"></div>
-      <div class="col-2"><button class="btn btn-primary w-100" onclick="adicionarLinhaManual()"><i class="fas fa-plus"></i> Add</button></div>
-    </div>
-  </div>
-  
-  <!-- Lista de itens adicionados (resumo) -->
-  <div class="card-pedido" id="resumo-itens" style="display: none;">
-    <h6>📋 Itens do Pedido</h6>
-    <div class="table-responsive">
-      <table class="table table-sm">
-        <thead><tr><th>Produto</th><th>Preço</th><th>Qtd</th><th>Bonif</th><th>Total</th><th></th></tr></thead>
-        <tbody id="tabela-resumo-itens"></tbody>
-        <tfoot><tr><td colspan="4" class="text-end fw-bold">Total Geral:</td><td id="total-geral-pedido">R$ 0,00</td><td></td></tr></tfoot>
-      </table>
-    </div>
-    <div class="row g-2 mt-2">
-      <div class="col-4"><select id="ped-financeiro" class="form-select"><option>Boleto</option><option>Pix</option></select></div>
-      <input type="date" id="ped-prazo" class="form-control">
-      <div class="col-4"><button class="btn-main" onclick="mostrarResumoConfirmacao()">SALVAR PEDIDO</button></div>
-    </div>
-    <div class="mt-2"><textarea id="ped-obs" class="form-control" rows="2" placeholder="Observações"></textarea></div>
-  </div>
-</div>
-
-<!-- Modal de confirmação antes de salvar -->
-<div id="modalConfirmacao" class="modal-overlay hidden">
-  <div class="modal-card">
+  <div id="modulo-novo-pedido" class="hidden">
+    <h3 class="mb-4"><i class="fas fa-shopping-cart text-primary"></i> Montar Pedido</h3>
     
-    <div class="modal-header"><h5>Confirmar Pedido</h5><button class="btn-close-modal" onclick="fecharModalConfirmacao()">&times;</button>
-    <button class="btn btn-success" onclick="enviarWhatsAppPedido()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button></div>
-    <div class="modal-body" id="conteudoConfirmacao"></div>
-    <div class="modal-footer"><button class="btn-main" onclick="finalizarPedido()">Confirmar e Salvar</button><button class="btn btn-secondary" onclick="fecharModalConfirmacao()">Cancelar</button></div>
+    <div class="card-pedido bg-light border-0">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-10 col-8">
+          <label class="small fw-bold text-muted">Selecione o Fornecedor</label>
+          <select id="select-fornecedor" class="form-select" onchange="carregarHistorico()"></select>
+        </div>
+        <div class="col-md-2 col-4">
+          <button class="btn btn-outline-success w-100" onclick="abrirModalFornecedor()"><i class="fas fa-plus"></i> Forn.</button>
+        </div>
+      </div>
+      
+      <div class="row g-2 mt-2" id="area-repetir" style="display: none;">
+        <div class="col-12">
+          <select id="select-repetir" class="form-select border-info" onchange="repetirPedido()">
+            <option value="">🔄 Deseja repetir um pedido anterior?</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="area-tabela-pedido" class="card-pedido hidden">
+      <div class="d-flex justify-content-between mb-3">
+        <h5 class="m-0 text-primary">Itens do Pedido</h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="adicionarLinhaVazia()"><i class="fas fa-plus"></i> Linha</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle" id="tabela-novo-pedido">
+          <thead class="border-bottom"><tr><th>Produto</th><th style="width:100px;">Qtd</th><th style="width:120px;">Preço</th><th style="width:100px;">Subtotal</th><th></th></tr></thead>
+          <tbody id="corpo-novo-pedido"></tbody>
+        </table>
+      </div>
+      
+      <hr>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="small text-muted">Prazo (Dias)</label>
+          <input type="number" id="ped-prazo" class="form-control" placeholder="Ex: 14" oninput="calcularDataPrazo()">
+          <small id="txt-data-prazo" class="text-success fw-bold"></small>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Financeiro</label>
+          <select id="ped-financeiro" class="form-select"><option>Boleto</option><option>Pix</option></select>
+        </div>
+        <div class="col-md-6">
+          <h4 class="text-end text-danger fw-bold m-0 mt-3" id="total-novo-pedido">Total: R$ 0.00</h4>
+        </div>
+        <div class="col-12"><textarea id="ped-obs" class="form-control" placeholder="Observações..." rows="2"></textarea></div>
+        <div class="col-12"><button class="btn-main w-100 py-3 fs-5" onclick="abrirConfirmacao()"><i class="fas fa-paper-plane"></i> REVISAR E ENVIAR</button></div>
+      </div>
+    </div>
   </div>
-</div>
 
   <div id="modulo-status" class="hidden">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h3><i class="fas fa-chart-line text-primary"></i> Acompanhamento de Pedidos</h3>
-      <button class="btn btn-sm btn-outline-primary" onclick="atualizarTabelaStatus()"><i class="fas fa-sync-alt"></i> Atualizar</button>
-      
+      <h3><i class="fas fa-tasks text-primary"></i> Gestor de Pedidos</h3>
+      <button class="btn btn-outline-primary" onclick="atualizarTabelaStatus()"><i class="fas fa-sync"></i></button>
     </div>
-    <div class="row g-2 mb-4">
-      <div class="col-md-6"><input type="text" id="filtro-fornecedor" class="form-control form-control-sm" placeholder="Buscar por fornecedor..." onkeyup="filtrarTabela()"></div>
-    </div>
-    <div class="table-responsive card-pedido p-0 overflow-visible">
-      <table class="tabela-erp w-100" id="tabela-pedidos">
-        <thead><tr><th>ID</th><th>Fornecedor</th><th>Data</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
-        <tbody id="corpo-tabela-status"></tbody>
+    <input type="text" id="filtro-gestor" class="form-control mb-3" placeholder="Buscar por fornecedor..." onkeyup="filtrarGestor()">
+    <div class="table-responsive card-pedido p-0">
+      <table class="table table-hover mb-0">
+        <thead class="bg-light"><tr><th>ID</th><th>Fornecedor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody id="corpo-gestor"></tbody>
       </table>
     </div>
   </div>
+</div>
 
 <div id="modulo-trocas" class="hidden">
-  <h3><i class="fas fa-exchange-alt"></i> Trocas e Devoluções</h3>
-  <div class="card-pedido">
-    <h5>Registrar Troca/Devolução</h5>
-    <div class="row g-2">
-      <div class="col-md-3"><select id="troca-fornecedor" class="form-select" onchange="carregarProdutosParaTroca(); carregarTrocas();"><option value="">Selecione Fornecedor</option></select></div>
-      <div class="col-md-3"><select id="troca-pedido" class="form-select"><option value="">Pedido (opcional)</option></select></div>
-      <div class="col-md-3"><select id="troca-produto" class="form-select"><option value="">Selecione o produto</option></select></div>
-      <div class="col-md-2"><input type="number" id="troca-qtd" class="form-control" placeholder="Quantidade"></div>
-      <div class="col-md-2"><input type="number" id="troca-valor" class="form-control" placeholder="Valor R$"></div>
-      <div class="col-md-3"><select id="troca-tipo" class="form-select"><option value="Troca">Troca</option><option value="Devolucao">Devolução</option></select></div>
-      <div class="col-md-6"><input type="text" id="troca-obs" class="form-control" placeholder="Observação"></div>
-      <div class="col-md-3"><button class="btn-main" onclick="salvarTroca()">Registrar</button></div>
+    <h3 class="mb-4"><i class="fas fa-exchange-alt text-primary"></i> Trocas e Devoluções</h3>
+    
+    <div class="card-pedido bg-light border-0">
+      <h5 class="mb-3 text-primary">Registrar Troca/Devolução</h5>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="small text-muted">Fornecedor</label>
+          <select id="troca-fornecedor" class="form-select" onchange="carregarProdutosParaTroca(); carregarPedidosParaTroca(); carregarTrocas();"><option value="">Selecione...</option></select>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Pedido</label>
+          <select id="troca-pedido" class="form-select"><option value="">Opcional...</option></select>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Produto</label>
+          <select id="troca-produto" class="form-select"><option value="">Selecione...</option></select>
+        </div>
+        <div class="col-md-1">
+          <label class="small text-muted">Qtd</label>
+          <input type="number" id="troca-qtd" class="form-control" placeholder="0">
+        </div>
+        <div class="col-md-2">
+          <label class="small text-muted">Valor</label>
+          <input type="number" id="troca-valor" class="form-control" placeholder="R$">
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Tipo</label>
+          <select id="troca-tipo" class="form-select"><option value="Troca">Troca</option><option value="Devolucao">Devolução</option></select>
+        </div>
+        <div class="col-md-7">
+          <label class="small text-muted">Observação</label>
+          <input type="text" id="troca-obs" class="form-control" placeholder="Motivo...">
+        </div>
+        <div class="col-md-2">
+          <button class="btn-main w-100" onclick="salvarTrocaFront()">Registrar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-pedido">
+      <h5 class="mb-3 text-primary">Histórico</h5>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="tabela-trocas">
+          <thead class="bg-light"><tr><th>Data</th><th>Pedido</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Tipo</th><th>Status</th><th class="text-end">Ação</th></tr></thead>
+          <tbody id="corpo-trocas"></tbody>
+        </table>
+      </div>
     </div>
   </div>
-  <div class="card-pedido">
-    <h5>Histórico de Trocas/Devoluções</h5>
-    <div class="table-responsive">
-      <table class="table table-sm" id="tabela-trocas">
-        <thead><tr><th>Data</th><th>Pedido</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Tipo</th><th>Status</th><th>Ação</th></tr></thead>
-        <tbody id="corpo-trocas"></tbody>
-      </table>
+
+<div id="modalFornecedor" class="modal-overlay hidden" onclick="if(event.target.id==='modalFornecedor') fecharModal('modalFornecedor')">
+  <div class="modal-card">
+    <div class="modal-header"><h5>Cadastro de Fornecedor</h5><button class="btn-close-modal" onclick="fecharModal('modalFornecedor')">&times;</button></div>
+    <div class="modal-body">
+      <input type="text" id="cad-forn-nome" class="form-control mb-3" placeholder="Nome da Empresa">
+      <input type="text" id="cad-forn-tel" class="form-control mb-3" placeholder="WhatsApp">
+      <input type="text" id="cad-forn-dia" class="form-control" placeholder="Dia de Entrega (Ex: Terça)">
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharModal('modalFornecedor')">Cancelar</button><button class="btn btn-success" onclick="salvarNovoFornecedor()">Salvar</button></div>
+  </div>
+</div>
+
+<div id="modalConfirmacao" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header bg-primary text-white"><h5 class="m-0 text-white"><i class="fas fa-check-double"></i> Confirmar Envio</h5><button class="btn-close-modal text-white" onclick="fecharModal('modalConfirmacao')">&times;</button></div>
+    <div class="modal-body">
+      <p class="text-muted">Revise os dados antes de salvar.</p>
+      <div id="resumo-html-confirmacao" class="bg-light p-3 rounded border"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fecharModal('modalConfirmacao')">Voltar e Editar</button>
+      <button class="btn btn-success fw-bold px-4" onclick="salvarPedidoFinal()"><i class="fas fa-save"></i> Confirmar e Salvar</button>
     </div>
   </div>
 </div>
 
-  <div id="modulo-padaria" class="hidden">
-    <h3><i class="fas fa-bread-slice"></i> Produção da Padaria</h3>
-    <div id="lista-ordens-producao"></div>
+<div id="modalVisualizadorPedido" class="modal-overlay hidden" onclick="if(event.target.id==='modalVisualizadorPedido') fecharModal('modalVisualizadorPedido')">
+  <div class="modal-card" style="max-width: 800px;">
+    <div class="modal-header bg-light">
+      <div>
+        <h4 class="m-0 text-primary fw-bold" id="vis-id">PED-0000</h4>
+        <small class="text-muted" id="vis-forn">Fornecedor</small>
+      </div>
+      <button class="btn-close-modal" onclick="fecharModal('modalVisualizadorPedido')">&times;</button>
+    </div>
+    <div class="modal-body p-0">
+      <div class="bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+        <div><small class="text-muted d-block">Status Atual</small><span id="vis-status" class="badge bg-warning fs-6">Pendente</span></div>
+        <div class="text-end"><small class="text-muted d-block">Prazo / Pagamento</small><span id="vis-info" class="fw-bold"></span></div>
+      </div>
+      
+      <div class="bg-light p-2 d-flex gap-2 justify-content-center border-bottom">
+        <button class="btn btn-sm btn-success flex-fill" onclick="mudarStatusVisualizador('Entregue')"><i class="fas fa-check"></i> Marcar Entregue</button>
+        <button class="btn btn-sm btn-warning flex-fill" onclick="iniciarRecebimentoParcialVisualizador()"><i class="fas fa-box-open"></i> Faltou Item</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="excluirDoVisualizador()"><i class="fas fa-trash"></i></button>
+      </div>
+
+      <div class="p-3">
+        <h6 class="text-primary fw-bold mb-3">Lista de Itens</h6>
+        <div class="table-responsive"><table class="table table-sm border">
+          <thead class="table-light"><tr><th>Produto</th><th class="text-center">Qtd</th><th class="text-end">V. Unit</th><th class="text-end">Total</th></tr></thead>
+          <tbody id="vis-itens"></tbody>
+        </table></div>
+        <h4 class="text-end text-danger fw-bold mt-2" id="vis-total">R$ 0,00</h4>
+      </div>
+    </div>
+    <div class="modal-footer bg-light justify-content-between">
+      <button class="btn btn-outline-primary" onclick="gerarPDFVisualizador()"><i class="fas fa-file-pdf"></i> Imprimir PDF</button>
+      <button class="btn btn-success" onclick="enviarWhatsVisualizador()"><i class="fab fa-whatsapp"></i> Reenviar WhatsApp</button>
+    </div>
   </div>
 </div>
 
-<div id="nav-bar" class="nav-bottom hidden">
-  <div class="nav-item menu-gerente" onclick="mostrarModulo('dashboard')"><i class="fas fa-chart-pie"></i><br>Dash</div>
-  <div class="nav-item menu-gerente" onclick="mostrarModulo('fornecedores')"><i class="fas fa-truck"></i><br>Forn.</div>
-  <div class="nav-item menu-gerente" onclick="mostrarModulo('novo-pedido')"><i class="fas fa-cart-plus"></i><br>Pedido</div>
-  <div class="nav-item menu-gerente" onclick="mostrarModulo('status')"><i class="fas fa-chart-pie"></i><br>Status</div>
-  <div class="nav-item menu-gerente" onclick="mostrarModulo('trocas')"><i class="fas fa-exchange-alt"></i><br>Troca</div>
-  <div class="nav-item menu-gerente" onclick="mostrarModulo('dashboard')"><i class="fas fa-chart-pie"></i><br>Dash</div>
-</div>
-
-<!-- Modal de confirmação de pedido -->
-<div id="modalConfirmarPedido" class="modal-overlay hidden">
-  <div class="modal-card">
-    <div class="modal-header"><h5>📋 Resumo do Pedido</h5><button class="btn-close-modal" onclick="fecharModalConfirmacao()">&times;</button></div>
-    <div id="conteudoResumoPedido" class="modal-body"></div>
-    <div class="modal-footer"><button class="btn-main" onclick="finalizarPedidoConfirmado()">Confirmar e Salvar</button><button class="btn btn-secondary" onclick="fecharModalConfirmacao()">Cancelar</button></div>
+<div id="modalFaltantes" class="modal-overlay hidden" onclick="if(event.target.id === 'modalFaltantes') fecharModal('modalFaltantes')">
+  <div class="modal-card" style="max-width: 600px;">
+    <div class="modal-header bg-warning">
+      <h5 class="mb-0 text-dark fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> Itens Faltantes</h5>
+      <button class="btn-close-modal text-dark" onclick="fecharModal('modalFaltantes')">&times;</button>
+    </div>
+    <div class="modal-body p-4">
+      <p class="text-muted small mb-3">Indique <b>apenas a quantidade que FALTOU</b>. Deixe em zero o que chegou corretamente.</p>
+      <div class="table-responsive">
+        <table class="table border">
+          <thead class="bg-light"><tr><th>Produto</th><th class="text-center">Pedida</th><th style="width: 120px;">Faltou (Qtd)</th></tr></thead>
+          <tbody id="lista-itens-faltantes"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer bg-light p-3 d-flex justify-content-end gap-2">
+      <button class="btn btn-outline-secondary" onclick="fecharModal('modalFaltantes')">Cancelar</button>
+      <button class="btn btn-warning fw-bold text-dark" onclick="salvarItensFaltantes()"><i class="fas fa-save"></i> Confirmar Falhas</button>
+    </div>
   </div>
 </div>
 
-<!-- Modal de itens faltantes pendentes (personalizado) -->
-<div id="modalItensPendentes" class="modal-overlay hidden">
-  <div class="modal-card">
-    <div class="modal-header"><h5>⚠️ Itens pendentes de entregas anteriores</h5><button class="btn-close-modal" onclick="fecharModalPendentes()">&times;</button></div>
-    <div id="conteudoPendentes" class="modal-body"></div>
-    <div class="modal-footer"><button class="btn-main" onclick="adicionarItensPendentesSelecionados()">Adicionar Selecionados</button><button class="btn btn-secondary" onclick="fecharModalPendentes()">Ignorar</button></div>
+<div id="modalSucessoPedido" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width: 400px; text-align: center;">
+    <div class="p-4">
+      <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
+      <h4 class="fw-bold">Pedido Salvo!</h4>
+      <p class="text-muted">O que deseja fazer agora?</p>
+      
+      <button class="btn btn-success w-100 mb-2 py-3 fw-bold" id="btn-whats-sucesso">
+        <i class="fab fa-whatsapp me-2"></i> Enviar para WhatsApp
+      </button>
+      
+      <button class="btn btn-light border w-100 py-3" onclick="fecharSucessoIrParaGestor()">
+        Ir para Gestor de Pedidos
+      </button>
+    </div>
   </div>
 </div>
 
-<!-- Modal de detalhes do pedido (com WhatsApp e PDF) -->
-<div id="modalDetalhes" class="modal-overlay hidden" onclick="fecharModalExterno(event)">
-  <div class="modal-card" style="max-width: 700px;">
-    <div class="modal-header"><h5><i class="fas fa-list-ul me-2"></i> Detalhes do Pedido</h5><button class="btn-close-modal" onclick="fecharModal()">&times;</button>
-    <button class="btn btn-success" onclick="enviarWhatsAppPedido()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button></div>
-    <div id="conteudoModal" class="modal-body"></div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharModal()">Fechar</button></div>
-  </div>
-</div>
-
-<!-- Modal de faltantes -->
-<div id="modalFaltantes" class="modal-overlay hidden" onclick="if(event.target.id === 'modalFaltantes') fecharModalFaltantes()">
-  <div class="modal-card" style="max-width: 600px; width: 95%;">
-    <div class="modal-header" style="background: #fff3cd;"><h5><i class="fas fa-exclamation-triangle text-warning me-2"></i> Relatar Falhas de Entrega</h5><button class="btn-close-modal" onclick="fecharModalFaltantes()">&times;</button></div>
-    <div class="modal-body p-4"><div class="table-responsive"><table class="table border"><thead class="bg-light"><tr><th>Produto</th><th>Pedida</th><th>Faltou</th></tr></thead><tbody id="lista-itens-faltantes"></tbody></table></div></div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharModalFaltantes()">Cancelar</button><button class="btn btn-warning" onclick="salvarItensFaltantes()">Confirmar Falhas</button></div>
-  </div>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   let sessionToken = null;
-  let todosPedidos = [];
-  let pedidoAtualFaltantes = null;
-  let fornecedorAtualFaltantes = null;
-  let itensPendentesTemp = [];
-  let pedidoTemp = null;
-  let dashboardChart = null;
+  let pedidosEmCache = [];
+  let pedidoSelecionadoVisualizador = null;
 
   function mostrarToast(msg, tipo = "info") {
     const c = document.getElementById('toastContainer');
     const t = document.createElement('div');
     t.className = 'toast-custom';
-    t.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'error' ? 'exclamation-circle' : 'info-circle'}"></i> ${msg}`;
+    t.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle text-success' : tipo === 'error' ? 'exclamation-circle text-danger' : 'info-circle text-info'}"></i> ${msg}`;
     c.appendChild(t);
     setTimeout(() => t.remove(), 3000);
   }
   function showLoad(s) { document.getElementById('spinner').style.visibility = s ? 'visible' : 'hidden'; }
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('main-content').classList.toggle('expanded');
+  }
+  function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+  // ========== INIT & NAVEGAÇÃO ==========
   function login() {
     showLoad(true);
     google.script.run.withSuccessHandler(res => {
@@ -282,112 +340,351 @@
         sessionToken = res.token;
         document.getElementById('tela-login').classList.add('hidden');
         document.getElementById('sidebar').classList.remove('hidden');
-        document.getElementById('nav-bar').classList.remove('hidden');
-        if (res.usuario.perfil === 'Gerente') {
-          document.querySelectorAll('.menu-gerente').forEach(e => e.classList.remove('hidden'));
-          carregarFornecedores();
-          carregarListaFornecedores();
-          carregarFornecedoresTroca();
-          mostrarModulo('dashboard');
-        }
-        mostrarToast("Login efetuado!", "success");
-      } else { mostrarToast(res ? res.mensagem : "Erro de comunicação.", "error"); }
+        carregarDropdownFornecedores();
+        atualizarTabelaStatus();
+        mostrarModulo('status');
+      } else { mostrarToast(res.mensagem, "error"); }
     }).validarLogin(document.getElementById('user').value, document.getElementById('pass').value);
   }
-  function forcarAcesso() { google.script.run.withSuccessHandler(m => { alert(m); location.reload(); }).forcarAutorizacao(); }
   function logout() { location.reload(); }
-
   function mostrarModulo(mod) {
-    if(!sessionToken) return mostrarToast("Faça login primeiro", "error");
-    ['dashboard','fornecedores','novo-pedido','status','trocas','padaria'].forEach(id => {
-      let el = document.getElementById('modulo-'+id);
-      if(el) el.classList.add('hidden');
-    });
-    let target = document.getElementById('modulo-'+mod);
-    if(target) target.classList.remove('hidden');
-    if(mod === 'dashboard') carregarDashboard();
-    if(mod === 'status') atualizarTabelaStatus();
-    if(mod === 'fornecedores') carregarListaFornecedores();
-    if(mod === 'trocas') { carregarFornecedoresTroca(); carregarTrocas(); }
-    if(mod === 'padaria') carregarProducao();
+    document.querySelectorAll('.main-content > div:not(#menu-toggle):not(#tela-login)').forEach(el => el.classList.add('hidden'));
+    document.getElementById('modulo-'+mod).classList.remove('hidden');
+    if(mod === 'fornecedores') carregarCardsFornecedores();
+    if(window.innerWidth <= 768) toggleSidebar(); 
+    if(mod === 'trocas') { carregarFornecedoresTroca(); }
   }
-
-function carregarDashboard() {
-  showLoad(true);
-  google.script.run.withSuccessHandler(data => {
-    showLoad(false);
-    // data agora tem { pedidosPorFornecedor, ranking }
-    const fornecedores = Object.keys(data.pedidosPorFornecedor);
-    const totais = fornecedores.map(f => data.pedidosPorFornecedor[f].total);
-    const entregues = fornecedores.map(f => data.pedidosPorFornecedor[f].entregues);
-    // ... resto do código do gráfico
-
-    if (window.graficoPedidos) window.graficoPedidos.destroy();
-    const ctx = document.getElementById('graficoPedidosFornecedor').getContext('2d');
-    window.graficoPedidos = new Chart(ctx, {
-      type: 'bar',
-      data: { labels: fornecedores, datasets: [{ label: 'Total de Pedidos', data: totais, backgroundColor: '#4c1130' }, { label: 'Entregues', data: entregues, backgroundColor: '#28a745' }] },
-      options: { responsive: true, maintainAspectRatio: true }
-    });
-    
-    const rankingDiv = document.getElementById('ranking-fornecedores');
-    rankingDiv.innerHTML = '<ol>' + data.ranking.slice(0,5).map(r => `<li>${r.nome} - ${r.faltas} faltas</li>`).join('') + '</ol>';
-    
-    const totalPedidos = totais.reduce((a,b)=>a+b,0);
-    const totalEntregues = entregues.reduce((a,b)=>a+b,0);
-    const perc = totalPedidos ? ((totalEntregues/totalPedidos)*100).toFixed(1) : 0;
-    document.getElementById('indicadores-gerais').innerHTML = `<p>Total de pedidos: ${totalPedidos}</p><p>Taxa de entrega: ${perc}%</p>`;
-  }).getDashboardData(sessionToken);
-}
 
   // ========== FORNECEDORES ==========
-  function salvarFornecedor() {
-    const dados = { nome: document.getElementById('forn-nome').value, contato: document.getElementById('forn-contato').value, diaEntrega: document.getElementById('forn-dia').value };
-    if(!dados.nome) return mostrarToast("Nome é obrigatório", "error");
+  function abrirModalFornecedor() { document.getElementById('modalFornecedor').classList.remove('hidden'); }
+  function salvarNovoFornecedor() {
+    const dados = { nome: document.getElementById('cad-forn-nome').value, contato: document.getElementById('cad-forn-tel').value, diaEntrega: document.getElementById('cad-forn-dia').value };
+    if(!dados.nome) return mostrarToast("Nome obrigatório", "error");
     showLoad(true);
     google.script.run.withSuccessHandler(() => {
-      showLoad(false);
-      mostrarToast("Fornecedor Cadastrado!", "success");
-      document.getElementById('forn-nome').value = '';
-      document.getElementById('forn-contato').value = '';
-      document.getElementById('forn-dia').value = '';
-      carregarListaFornecedores();
-      carregarFornecedores();
-      carregarFornecedoresTroca();
+      showLoad(false); fecharModal('modalFornecedor'); mostrarToast("Fornecedor Salvo!", "success");
+      carregarDropdownFornecedores(); carregarCardsFornecedores();
     }).salvarFornecedor(dados, sessionToken);
   }
-  function carregarListaFornecedores() {
+  function carregarCardsFornecedores() {
     google.script.run.withSuccessHandler(lista => {
-      const div = document.getElementById('lista-fornecedores');
-      div.innerHTML = "<h6>Fornecedores</h6>";
-      if (!lista || lista.length === 0) { div.innerHTML += "<p>Nenhum</p>"; return; }
-      lista.forEach(f => { div.innerHTML += `<div class="p-2 border-bottom"><strong>${f.nome}</strong><br><small>Entrega: ${f.diaEntrega} | Tel: ${f.contato}</small></div>`; });
+      const container = document.getElementById('lista-fornecedores');
+      container.innerHTML = lista.map(f => `
+        <div class="col-md-6 col-lg-4 forn-card" data-nome="${f.nome.toLowerCase()}">
+          <div class="border p-3 rounded bg-white shadow-sm h-100 border-start border-4 border-primary">
+            <h5 class="fw-bold text-primary mb-1">${f.nome}</h5>
+            <small class="text-muted d-block mb-2"><i class="fab fa-whatsapp text-success"></i> ${f.contato || 'Sem número'}</small>
+            <span class="badge bg-light text-dark border"><i class="fas fa-calendar-day"></i> Entrega: ${f.diaEntrega || 'N/D'}</span>
+          </div>
+        </div>
+      `).join('');
     }).getFornecedores(sessionToken);
   }
-  function carregarFornecedores() {
-    google.script.run.withSuccessHandler(forns => {
+  function filtrarFornecedores() {
+    const termo = document.getElementById('busca-forn').value.toLowerCase();
+    document.querySelectorAll('.forn-card').forEach(c => { c.style.display = c.dataset.nome.includes(termo) ? 'block' : 'none'; });
+  }
+
+  // ========== NOVO PEDIDO ==========
+  function carregarDropdownFornecedores() {
+    google.script.run.withSuccessHandler(lista => {
       const sel = document.getElementById('select-fornecedor');
-      sel.innerHTML = '<option value="">Selecione o Fornecedor...</option>';
-      forns.forEach(f => sel.add(new Option(f.nome, f.id)));
+      sel.innerHTML = '<option value="">1. Selecione o Fornecedor...</option>' + lista.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
     }).getFornecedores(sessionToken);
   }
-  function carregarFornecedoresTroca() {
-    google.script.run.withSuccessHandler(forns => {
-      const sel = document.getElementById('troca-fornecedor');
-      sel.innerHTML = '<option value="">Selecione Fornecedor</option>';
-      forns.forEach(f => sel.add(new Option(f.nome, f.id)));
-    }).getFornecedores(sessionToken);
+  
+  function carregarHistorico() {
+    const idForn = document.getElementById('select-fornecedor').value;
+    const rep = document.getElementById('area-repetir');
+    const tab = document.getElementById('area-tabela-pedido');
+    if(!idForn) { rep.style.display='none'; tab.classList.add('hidden'); return; }
+    
+    rep.style.display='flex'; tab.classList.remove('hidden');
+    document.getElementById('corpo-novo-pedido').innerHTML = '';
+    adicionarLinhaVazia(); 
+    
+    const selectRepetir = document.getElementById('select-repetir');
+    const pedidosForn = pedidosEmCache.filter(p => p[7] === idForn);
+    selectRepetir.innerHTML = '<option value="">🔄 Digitar novo ou Repetir anterior?</option>' + 
+      pedidosForn.slice(0, 5).map(p => `<option value="${p[0]}">${new Date(p[2]).toLocaleDateString()} - ${p[3]}</option>`).join('');
   }
-  function carregarProdutosTroca() {
-    const fornId = document.getElementById('troca-fornecedor').value;
-    const selProd = document.getElementById('troca-produto');
-    selProd.innerHTML = '<option value="">Carregando...</option>';
-    if (!fornId) { selProd.innerHTML = '<option value="">Selecione fornecedor</option>'; return; }
-    google.script.run.withSuccessHandler(produtos => {
-      selProd.innerHTML = '<option value="">Selecione o produto</option>';
-      produtos.forEach(p => selProd.add(new Option(p.nome, p.nome)));
-    }).getProdutosPorFornecedorSelect(fornId, sessionToken);
+
+  function calcularDataPrazo() {
+    const dias = parseInt(document.getElementById('ped-prazo').value);
+    const txt = document.getElementById('txt-data-prazo');
+    if(isNaN(dias) || dias <= 0) { txt.innerText = ''; return; }
+    let d = new Date(); d.setDate(d.getDate() + dias);
+    txt.innerText = "Chega em: " + d.toLocaleDateString();
   }
+
+  function adicionarLinhaVazia(nome='', qtd='', preco='') {
+    const tr = document.createElement('tr');
+    tr.className = "linha-editavel border-bottom";
+    tr.innerHTML = `
+      <td><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto..." value="${nome}"></td>
+      <td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="${qtd}" oninput="calcTabela()"></td>
+      <td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="${preco}" oninput="calcTabela()"></td>
+      <td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>
+      <td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest('tr').remove(); calcTabela();"></i></td>
+    `;
+    document.getElementById('corpo-novo-pedido').appendChild(tr);
+    calcTabela();
+  }
+
+  function repetirPedido() {
+    const id = document.getElementById('select-repetir').value;
+    if(!id) return;
+    showLoad(true);
+    google.script.run.withSuccessHandler(itens => {
+      showLoad(false);
+      document.getElementById('corpo-novo-pedido').innerHTML = '';
+      itens.forEach(i => adicionarLinhaVazia(i[1], i[3], i[2]));
+      mostrarToast("Pedido carregado para edição!", "success");
+    }).getDetalhesPedido(id, sessionToken);
+  }
+
+  function calcTabela() {
+    let total = 0;
+    document.querySelectorAll('.linha-editavel').forEach(tr => {
+      const q = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
+      const p = parseFloat(tr.querySelector('.fn-preco').value) || 0;
+      const sub = q * p;
+      tr.querySelector('.fn-sub').innerText = `R$ ${sub.toFixed(2)}`;
+      total += sub;
+    });
+    document.getElementById('total-novo-pedido').innerText = `Total: R$ ${total.toFixed(2)}`;
+    return total;
+  }
+
+  // ========== SALVAR E WHATSAPP ==========
+  let pedidoParaSalvar = null;
+  
+  function abrirConfirmacao() {
+    const total = calcTabela();
+    if(total <= 0) return mostrarToast("O pedido está vazio ou zerado.", "error");
+    
+    const itens = [];
+    document.querySelectorAll('.linha-editavel').forEach(tr => {
+      const nome = tr.querySelector('.fn-nome').value.trim();
+      const qtd = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
+      const preco = parseFloat(tr.querySelector('.fn-preco').value) || 0;
+      if(nome && qtd > 0) itens.push({ nome, qtd, preco, validade: '', bonificado: 'Não' });
+    });
+
+    const sel = document.getElementById('select-fornecedor');
+    pedidoParaSalvar = {
+      idFornecedor: sel.value,
+      nomeFornecedor: sel.options[sel.selectedIndex].text,
+      financeiro: document.getElementById('ped-financeiro').value,
+      prazo: document.getElementById('ped-prazo').value || "0",
+      obs: document.getElementById('ped-obs').value,
+      itens: itens,
+      totalCalc: total
+    };
+
+    let html = `<ul class="list-group mb-3">`;
+    itens.forEach(i => html += `<li class="list-group-item d-flex justify-content-between"><span>${i.nome} (${i.qtd}x)</span><span>R$ ${(i.qtd*i.preco).toFixed(2)}</span></li>`);
+    html += `</ul><h4 class="text-end text-danger fw-bold">Total: R$ ${total.toFixed(2)}</h4>`;
+    
+    document.getElementById('resumo-html-confirmacao').innerHTML = html;
+    document.getElementById('modalConfirmacao').classList.remove('hidden');
+  }
+
+let pedidoRecemSalvo = null;
+
+function salvarPedidoFinal() {
+  showLoad(true);
+  google.script.run.withSuccessHandler(idPedido => {
+    showLoad(false);
+    fecharModal('modalConfirmacao');
+    
+    // Guarda o pedido para o botão de WhatsApp usar depois
+    pedidoRecemSalvo = { id: idPedido, ...pedidoParaSalvar };
+    
+    // FIX 4: Abre a tela de escolha em vez de disparar o WhatsApp direto
+    document.getElementById('modalSucessoPedido').classList.remove('hidden');
+    
+    // Configura o botão do WhatsApp do modal
+    document.getElementById('btn-whats-sucesso').onclick = function() {
+      enviarWhatsManual(pedidoRecemSalvo);
+    };
+    
+    limparFormularioPedido();
+    atualizarTabelaStatus();
+  }).salvarPedido(pedidoParaSalvar, sessionToken);
+}
+
+function enviarWhatsManual(p) {
+  let msg = "*🛒 NOVO PEDIDO - " + p.id + "*\n\n";
+  p.itens.forEach(i => {
+    msg += "▪️ " + i.nome + " - " + i.qtd + "x (R$ " + i.preco.toFixed(2) + ")\n";
+  });
+  msg += "\n*💰 Total: R$ " + p.totalCalc.toFixed(2) + "*";
+  window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), '_blank');
+  fecharSucessoIrParaGestor();
+}
+
+function fecharSucessoIrParaGestor() {
+  fecharModal('modalSucessoPedido');
+  mostrarModulo('status');
+}
+
+  // ========== GESTOR E VISUALIZADOR ==========
+  function atualizarTabelaStatus() {
+    showLoad(true);
+    google.script.run.withSuccessHandler(pedidos => {
+      showLoad(false);
+      pedidosEmCache = pedidos; 
+      filtrarGestor();
+    }).getPedidosStatus(sessionToken);
+  }
+
+  function filtrarGestor() {
+    const termo = document.getElementById('filtro-gestor').value.toLowerCase();
+    const filtrados = pedidosEmCache.filter(p => p[1].toLowerCase().includes(termo));
+    const tbody = document.getElementById('corpo-gestor');
+    if(filtrados.length === 0) { tbody.innerHTML = "<tr><td colspan='5' class='text-center py-4 text-muted'>Nenhum pedido.</td></tr>"; return; }
+    
+    tbody.innerHTML = filtrados.slice().reverse().map(p => {
+      const cor = p[3]==='Entregue'?'success':p[3]==='Pendente'?'warning text-dark':p[3]==='Devolvido'?'danger':'info text-dark';
+      return `
+        <tr class="align-middle cursor-pointer" onclick="abrirVisualizador('${p[0]}')">
+          <td><small class="text-muted">${p[0].split('-')[1]}</small></td>
+          <td class="fw-bold">${p[1]}</td>
+          <td>${new Date(p[2]).toLocaleDateString()}</td>
+          <td><span class="badge bg-${cor}">${p[3]}</span></td>
+          <td><button class="btn btn-sm btn-light border"><i class="fas fa-chevron-right text-primary"></i></button></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function abrirVisualizador(idPedido) {
+    const p = pedidosEmCache.find(x => x[0] === idPedido);
+    if(!p) return;
+    pedidoSelecionadoVisualizador = p;
+    
+    document.getElementById('vis-id').innerText = "📦 " + p[0];
+    document.getElementById('vis-forn').innerText = p[1];
+    const cor = p[3]==='Entregue'?'success':p[3]==='Pendente'?'warning text-dark':p[3]==='Devolvido'?'danger':'info text-dark';
+    document.getElementById('vis-status').className = `badge bg-${cor} fs-6`;
+    document.getElementById('vis-status').innerText = p[3];
+    document.getElementById('vis-info').innerText = `${p[4] || 0} Dias | ${p[5]}`;
+
+    showLoad(true);
+    google.script.run.withSuccessHandler(itens => {
+      showLoad(false);
+      let total = 0;
+      document.getElementById('vis-itens').innerHTML = itens.map(i => {
+        let sub = parseFloat(i[2]) * parseFloat(i[3]);
+        if(i[4] === 'Sim') sub = 0;
+        total += sub;
+        return `<tr><td>${i[1]}</td><td class="text-center">${i[3]}</td><td class="text-end text-muted">R$ ${parseFloat(i[2]).toFixed(2)}</td><td class="text-end fw-bold">R$ ${sub.toFixed(2)}</td></tr>`;
+      }).join('');
+      document.getElementById('vis-total').innerText = `Total Geral: R$ ${total.toFixed(2)}`;
+      document.getElementById('modalVisualizadorPedido').classList.remove('hidden');
+    }).getDetalhesPedido(idPedido, sessionToken);
+  }
+
+  function mudarStatusVisualizador(novo) {
+    const id = pedidoSelecionadoVisualizador[0];
+    if(!confirm(`Mudar o status para ${novo}?`)) return;
+    showLoad(true);
+    google.script.run.withSuccessHandler(() => {
+      mostrarToast("Status Alterado!", "success");
+      fecharModal('modalVisualizadorPedido');
+      atualizarTabelaStatus();
+    }).alterarStatusPedido(id, novo, sessionToken);
+  }
+
+  function excluirDoVisualizador() {
+    const id = pedidoSelecionadoVisualizador[0];
+    if(!confirm("Atenção! Esta ação apagará o pedido. Continuar?")) return;
+    showLoad(true);
+    google.script.run.withSuccessHandler(() => {
+      mostrarToast("Pedido apagado.", "success");
+      fecharModal('modalVisualizadorPedido');
+      atualizarTabelaStatus();
+    }).excluirPedido(id, sessionToken);
+  }
+
+  function gerarPDFVisualizador() {
+    const id = pedidoSelecionadoVisualizador[0];
+    showLoad(true);
+    google.script.run.withSuccessHandler(url => {
+      showLoad(false);
+      window.open(url, '_blank');
+    }).gerarPDFPedido(id, sessionToken);
+  }
+
+  function enviarWhatsVisualizador() {
+    const p = pedidoSelecionadoVisualizador;
+    showLoad(true);
+    google.script.run.withSuccessHandler(itens => {
+      showLoad(false);
+      let msg = "*🛒 PEDIDO: " + p[0] + "*\n*Fornecedor:* " + p[1] + "\n\n";
+      let t = 0;
+      itens.forEach(i => { let s = parseFloat(i[2])*parseFloat(i[3]); t+=s; msg += "▪️ " + i[1] + " - " + i[3] + "x (R$ " + parseFloat(i[2]).toFixed(2) + ")\n"; });
+      msg += "\n*💰 Total:* R$ " + t.toFixed(2);
+      window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), '_blank');
+    }).getDetalhesPedido(p[0], sessionToken);
+  }
+
+  // ========== MODAL FALTANTES ==========
+  function iniciarRecebimentoParcialVisualizador() {
+    const id = pedidoSelecionadoVisualizador[0];
+    showLoad(true);
+    google.script.run.withSuccessHandler(itens => {
+      showLoad(false);
+      const tbody = document.getElementById('lista-itens-faltantes');
+      tbody.innerHTML = itens.map(i => `
+        <tr class="item-falha-row border-bottom">
+          <td class="fw-bold item-falha-nome py-3">${i[1]}</td>
+          <td class="text-center py-3 badge bg-light text-dark my-2 border">${i[3]}</td>
+          <td class="py-2"><input type="number" class="form-control item-falha-qtd text-center" max="${i[3]}" min="0" placeholder="0"></td>
+        </tr>
+      `).join('');
+      fecharModal('modalVisualizadorPedido');
+      document.getElementById('modalFaltantes').classList.remove('hidden');
+    }).getDetalhesPedido(id, sessionToken);
+  }
+
+  function salvarItensFaltantes() {
+    const id = pedidoSelecionadoVisualizador[0];
+    const forn = pedidoSelecionadoVisualizador[7] || pedidoSelecionadoVisualizador[1];
+    const faltantes = [];
+    document.querySelectorAll('.item-falha-row').forEach(row => {
+      const nome = row.querySelector('.item-falha-nome').innerText;
+      const qtdFaltou = parseFloat(row.querySelector('.item-falha-qtd').value) || 0;
+      if (qtdFaltou > 0) faltantes.push({ nome: nome, qtdFaltante: qtdFaltou });
+    });
+
+    if (faltantes.length === 0) {
+      if(!confirm("Nenhuma falha reportada. Marcar como Parcial mesmo assim?")) return;
+    }
+
+    showLoad(true);
+    google.script.run.withSuccessHandler(() => {
+      google.script.run.withSuccessHandler(() => {
+        showLoad(false);
+        fecharModal('modalFaltantes');
+        mostrarToast("Faltas registradas!", "success");
+        atualizarTabelaStatus();
+      }).alterarStatusPedido(id, 'Parcialmente Entregue', sessionToken);
+    }).registrarItensFaltantes(id, forn, faltantes, sessionToken);
+  }
+
+
+  // ========== MÓDULO TROCAS E DEVOLUÇÕES ==========
+function carregarFornecedoresTroca() {
+  google.script.run.withSuccessHandler(forns => {
+    const sel = document.getElementById('troca-fornecedor');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecione o Fornecedor</option>';
+    forns.forEach(f => sel.add(new Option(f.nome, f.id)));
+  }).getFornecedores(sessionToken);
+}
+
 function carregarProdutosParaTroca() {
   const fornecedorId = document.getElementById('troca-fornecedor').value;
   const selectProduto = document.getElementById('troca-produto');
@@ -396,384 +693,9 @@ function carregarProdutosParaTroca() {
   google.script.run.withSuccessHandler(produtos => {
     const nomes = new Set();
     produtos.forEach(p => { 
-      if (!nomes.has(p.nome)) { 
-        nomes.add(p.nome); 
-        selectProduto.add(new Option(p.nome, p.nome)); 
-      } 
+      if (p.nome && !nomes.has(p.nome)) { nomes.add(p.nome); selectProduto.add(new Option(p.nome, p.nome)); }
     });
   }).getProdutosPorFornecedorSelect(fornecedorId, sessionToken);
-}
-
-let itensPedidoTemp = [];
-
-function carregarHistorico() {
-  const idForn = document.getElementById('select-fornecedor').value;
-  if (!idForn) { 
-    document.getElementById('area-insercao').style.display = 'none';
-    document.getElementById('resumo-itens').style.display = 'none';
-    itensPedidoTemp = [];
-    return; 
-  }
-  document.getElementById('area-insercao').style.display = 'block';
-  document.getElementById('resumo-itens').style.display = 'block';
-  itensPedidoTemp = [];
-  atualizarTabelaResumo();
-  
-  // Carregar produtos do fornecedor para datalist
-  google.script.run.withSuccessHandler(produtos => {
-    const datalist = document.getElementById('listaProdutosSugeridos');
-    datalist.innerHTML = '';
-    produtos.forEach(p => {
-      const option = document.createElement('option');
-      option.value = p[2];
-      datalist.appendChild(option);
-    });
-  }).getProdutosPorFornecedor(idForn, sessionToken);
-  
-  // Verificar itens pendentes (faltantes)
-  google.script.run.withSuccessHandler(faltantes => {
-    if (faltantes.length > 0) {
-      let msg = `⚠️ Itens pendentes de entregas anteriores: ${faltantes.map(f => `${f.produto} (${f.qtdFaltante})`).join(', ')}`;
-      mostrarToast(msg, "error");
-      // Adicionar automaticamente com quantidade pendente
-      faltantes.forEach(f => {
-        adicionarItemTemp(f.produto, 0, f.qtdFaltante);
-      });
-    }
-  }).getItensFaltantesNaoResolvidos(idForn, sessionToken);
-}
-
-function adicionarLinhaManual() {
-  const nome = document.getElementById('novo-item-nome').value.trim();
-  const preco = parseFloat(document.getElementById('novo-item-preco').value);
-  const qtd = parseFloat(document.getElementById('novo-item-qtd').value);
-  if (!nome || isNaN(qtd) || qtd <= 0) return mostrarToast("Preencha nome e quantidade", "error");
-  adicionarItemTemp(nome, isNaN(preco) ? 0 : preco, qtd);
-  document.getElementById('novo-item-nome').value = '';
-  document.getElementById('novo-item-preco').value = '';
-  document.getElementById('novo-item-qtd').value = '';
-}
-
-function adicionarItemTemp(nome, preco, qtd, bonificado = false) {
-  itensPedidoTemp.push({ nome, preco, qtd, bonificado, validade: '' });
-  atualizarTabelaResumo();
-}
-
-function removerItemTemp(index) {
-  itensPedidoTemp.splice(index, 1);
-  atualizarTabelaResumo();
-}
-
-function atualizarTabelaResumo() {
-  const tbody = document.getElementById('tabela-resumo-itens');
-  let totalGeral = 0;
-  tbody.innerHTML = itensPedidoTemp.map((item, idx) => {
-    const totalLinha = item.bonificado ? 0 : item.preco * item.qtd;
-    totalGeral += totalLinha;
-    return `
-      <tr>
-        <td>${item.nome}</td>
-        <td>R$ ${item.preco.toFixed(2)}</td>
-        <td><input type="number" class="form-control form-control-sm" value="${item.qtd}" style="width:80px" onchange="atualizarQtd(${idx}, this.value)"></td>
-        <td><input type="checkbox" onchange="atualizarBonif(${idx}, this.checked)" ${item.bonificado ? 'checked' : ''}></td>
-        <td>R$ ${totalLinha.toFixed(2)}</td>
-        <td><i class="fas fa-trash text-danger" onclick="removerItemTemp(${idx})"></i></td>
-      </tr>
-    `;
-  }).join('');
-  document.getElementById('total-geral-pedido').innerText = `R$ ${totalGeral.toFixed(2)}`;
-}
-
-function atualizarQtd(idx, novaQtd) {
-  itensPedidoTemp[idx].qtd = parseFloat(novaQtd);
-  atualizarTabelaResumo();
-}
-
-function atualizarBonif(idx, checked) {
-  itensPedidoTemp[idx].bonificado = checked;
-  atualizarTabelaResumo();
-}
-
-function mostrarResumoConfirmacao() {
-  if (itensPedidoTemp.length === 0) return mostrarToast("Adicione pelo menos um item", "error");
-  const total = itensPedidoTemp.reduce((acc, i) => acc + (i.bonificado ? 0 : i.preco * i.qtd), 0);
-  const html = `
-    <p><strong>Fornecedor:</strong> ${document.getElementById('select-fornecedor').options[document.getElementById('select-fornecedor').selectedIndex]?.text}</p>
-    <p><strong>Total:</strong> R$ ${total.toFixed(2)}</p>
-    <p><strong>Forma de Pagamento:</strong> ${document.getElementById('ped-financeiro').value}</p>
-    <p><strong>Prazo:</strong> ${document.getElementById('ped-prazo').value || 'Não informado'}</p>
-    <p><strong>Itens:</strong></p>
-    <ul>${itensPedidoTemp.map(i => `<li>${i.nome} - ${i.qtd} x R$ ${i.preco.toFixed(2)} ${i.bonificado ? '(Bonificado)' : ''}</li>`).join('')}</ul>
-  `;
-  document.getElementById('conteudoConfirmacao').innerHTML = html;
-  document.getElementById('modalConfirmacao').classList.remove('hidden');
-}
-
-function fecharModalConfirmacao() { document.getElementById('modalConfirmacao').classList.add('hidden'); }
-
-function finalizarPedido() {
-  const sel = document.getElementById('select-fornecedor');
-  const pedido = {
-    idFornecedor: sel.value,
-    nomeFornecedor: sel.options[sel.selectedIndex].text,
-    financeiro: document.getElementById('ped-financeiro').value,
-    prazo: document.getElementById('ped-prazo').value,
-    obs: document.getElementById('ped-obs').value,
-    itens: itensPedidoTemp.map(i => ({
-      nome: i.nome,
-      preco: i.preco,
-      qtd: i.qtd,
-      validade: i.validade || "",
-      bonificado: i.bonificado ? "Sim" : "Não"
-    }))
-  };
-  showLoad(true);
-  google.script.run.withSuccessHandler(id => {
-    showLoad(false);
-    mostrarToast(`Pedido ${id} salvo!`, "success");
-    itensPedidoTemp = [];
-    atualizarTabelaResumo();
-    document.getElementById('select-fornecedor').value = '';
-    document.getElementById('area-insercao').style.display = 'none';
-    document.getElementById('resumo-itens').style.display = 'none';
-    fecharModalConfirmacao();
-    atualizarTabelaStatus();
-    mostrarModulo('status');
-  }).withFailureHandler(err => {
-    showLoad(false);
-    mostrarToast("Erro: " + err.message, "error");
-  }).salvarPedido(pedido, sessionToken);
-}
-
-  function gerarLinhaProduto(container, nome, preco, qtdSugerida = 0) {
-    const tr = document.createElement('tr');
-    tr.className = "item-row border-bottom";
-    tr.innerHTML = `
-      <td><b class="prod-nome">${nome}</b><br><small class="text-muted">R$ <span class="prod-preco">${parseFloat(preco).toFixed(2)}</span></small></td>
-      <td><input type="number" class="form-control form-control-sm qtd-item" value="${qtdSugerida}" min="0" step="0.01" oninput="calcularTotais()"></td>
-      <td><input type="date" class="form-control form-control-sm validade-item"></td>
-      <td class="text-center"><div class="form-check form-switch d-inline-block"><input class="form-check-input check-bonif" type="checkbox" onchange="calcularTotais()"></div></td>
-      <td class="total-linha">R$ 0,00</td>
-      <td class="text-center"><i class="fas fa-trash text-danger" onclick="this.closest('tr').remove(); calcularTotais();"></i></td>
-    `;
-    container.appendChild(tr);
-    calcularTotais();
-  }
-
-
-  function calcularTotais() {
-    let totalGeral = 0;
-    document.querySelectorAll('.item-row').forEach(row => {
-      const preco = parseFloat(row.querySelector('.prod-preco').innerText) || 0;
-      const qtd = parseFloat(row.querySelector('.qtd-item').value) || 0;
-      const bonif = row.querySelector('.check-bonif').checked;
-      let totalLinha = bonif ? 0 : preco * qtd;
-      row.querySelector('.total-linha').innerText = `R$ ${totalLinha.toFixed(2)}`;
-      totalGeral += totalLinha;
-    });
-    let totalSpan = document.getElementById('total-geral-pedido');
-    if(!totalSpan) {
-      let footer = document.querySelector('#modulo-novo-pedido .table-responsive');
-      if(footer) footer.insertAdjacentHTML('afterend', `<div class="text-end fw-bold mt-2">Total: <span id="total-geral-pedido">R$ 0,00</span></div>`);
-      totalSpan = document.getElementById('total-geral-pedido');
-    }
-    if(totalSpan) totalSpan.innerText = `R$ ${totalGeral.toFixed(2)}`;
-  }
-
-  function confirmarPedido() {
-    const sel = document.getElementById('select-fornecedor');
-    if (!sel || !sel.value) return mostrarToast("Selecione um fornecedor", "error");
-    const itens = [];
-    document.querySelectorAll('.item-row').forEach(row => {
-      const nome = row.querySelector('.prod-nome').innerText;
-      const preco = parseFloat(row.querySelector('.prod-preco').innerText);
-      const qtd = parseFloat(row.querySelector('.qtd-item').value) || 0;
-      if (qtd > 0) {
-        itens.push({
-          nome, preco, qtd,
-          validade: row.querySelector('.validade-item')?.value || "",
-          bonificado: row.querySelector('.check-bonif')?.checked ? "Sim" : "Não"
-        });
-      }
-    });
-    if (itens.length === 0) return mostrarToast("Adicione pelo menos um item com quantidade > 0", "error");
-    pedidoTemp = {
-      idFornecedor: sel.value,
-      nomeFornecedor: sel.options[sel.selectedIndex].text,
-      financeiro: document.getElementById('ped-financeiro').value,
-      prazo: document.getElementById('ped-prazo').value,
-      obs: document.getElementById('ped-obs').value,
-      itens: itens
-    };
-    let html = `<table class="table table-sm"><thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Total</th></tr></thead><tbody>`;
-    let total = 0;
-    itens.forEach(i => {
-      let subtotal = i.bonificado === "Sim" ? 0 : i.preco * i.qtd;
-      total += subtotal;
-      html += `<tr><td>${i.nome}</td><td>${i.qtd}</td><td>R$ ${i.preco.toFixed(2)}</td><td>R$ ${subtotal.toFixed(2)}</td></tr>`;
-    });
-    html += `</tbody><tfoot><tr><th colspan="3">Total</th><th>R$ ${total.toFixed(2)}</th></tr></tfoot></table>`;
-    html += `<p><strong>Fornecedor:</strong> ${pedidoTemp.nomeFornecedor}<br><strong>Prazo:</strong> ${pedidoTemp.prazo}<br><strong>Financeiro:</strong> ${pedidoTemp.financeiro}<br><strong>Obs:</strong> ${pedidoTemp.obs}</p>`;
-    document.getElementById('conteudoResumoPedido').innerHTML = html;
-    document.getElementById('modalConfirmarPedido').classList.remove('hidden');
-  }
-
-  function fecharModalConfirmacao() { document.getElementById('modalConfirmarPedido').classList.add('hidden'); pedidoTemp = null; }
-  function finalizarPedidoConfirmado() {
-    if (!pedidoTemp) return;
-    showLoad(true);
-    google.script.run.withSuccessHandler(idPedido => {
-      showLoad(false);
-      mostrarToast(`Pedido ${idPedido} salvo!`, "success");
-      // Enviar WhatsApp
-      google.script.run.withSuccessHandler(numero => {
-        if (numero) {
-          let msg = `Novo pedido ${idPedido} para ${pedidoTemp.nomeFornecedor}. Total: R$ ${pedidoTemp.itens.reduce((acc,i)=> acc + (i.bonificado==="Sim"?0:i.preco*i.qtd),0).toFixed(2)}. Acesse o sistema para mais detalhes.`;
-          google.script.run.enviarMensagemWhatsApp(numero, msg);
-        }
-      }).getFornecedorWhats(pedidoTemp.idFornecedor, sessionToken);
-      document.getElementById('select-fornecedor').value = "";
-      document.getElementById('itens-historico').innerHTML = "";
-      document.getElementById('area-fechamento').classList.add('hidden');
-      atualizarTabelaStatus();
-      mostrarModulo('status');
-      fecharModalConfirmacao();
-    }).withFailureHandler(err => { showLoad(false); mostrarToast("Erro: "+err.message, "error"); }).salvarPedido(pedidoTemp, sessionToken);
-  }
-
-  // ========== ITENS PENDENTES (MODAL) ==========
-  function abrirModalPendentes() {
-    let html = `<p>Selecione os itens que deseja adicionar ao pedido:</p><ul>`;
-    itensPendentesTemp.forEach((item, idx) => {
-      html += `<li><input type="checkbox" class="pendente-check" data-idx="${idx}" data-produto="${item.produto}" data-qtd="${item.qtdFaltante}" data-preco="0"> <strong>${item.produto}</strong> - faltam ${item.qtdFaltante} (preço a definir: <input type="number" class="preco-pendente form-control form-control-sm d-inline-block w-25" data-produto="${item.produto}" placeholder="R$"></li>`;
-    });
-    html += `</ul>`;
-    document.getElementById('conteudoPendentes').innerHTML = html;
-    document.getElementById('modalItensPendentes').classList.remove('hidden');
-  }
-  function fecharModalPendentes() { document.getElementById('modalItensPendentes').classList.add('hidden'); }
-  function adicionarItensPendentesSelecionados() {
-    const checkboxes = document.querySelectorAll('#conteudoPendentes .pendente-check:checked');
-    const tbody = document.getElementById('itens-historico');
-    checkboxes.forEach(cb => {
-      const idx = cb.dataset.idx;
-      const produto = itensPendentesTemp[idx].produto;
-      let preco = document.querySelector(`.preco-pendente[data-produto="${produto}"]`).value;
-      preco = parseFloat(preco) || 0;
-      const qtd = itensPendentesTemp[idx].qtdFaltante;
-      gerarLinhaProduto(tbody, produto, preco, qtd);
-    });
-    fecharModalPendentes();
-    mostrarToast("Itens adicionados!", "success");
-  }
-
-  // ========== ACOMPANHAMENTO ==========
-  function atualizarTabelaStatus() {
-    showLoad(true);
-    google.script.run.withSuccessHandler(pedidos => {
-      todosPedidos = pedidos;
-      filtrarTabela();
-      showLoad(false);
-    }).getPedidosStatus(sessionToken);
-  }
-  function filtrarTabela() {
-    const filtro = document.getElementById('filtro-fornecedor').value.toLowerCase();
-    const filtrados = todosPedidos.filter(p => p[1].toLowerCase().includes(filtro));
-    const tbody = document.getElementById('corpo-tabela-status');
-    if (!tbody) return;
-    tbody.innerHTML = filtrados.slice().reverse().map(p => {
-      const statusMap = {'Pendente': 'warning', 'Entregue': 'success', 'Parcialmente Entregue': 'info'};
-      const cor = statusMap[p[3]] || 'secondary';
-      let badgeExtra = p[3] === 'Parcialmente Entregue' ? ' <span class="badge-falta">Faltas</span>' : '';
-      return `<tr data-pedido-id="${p[0]}" data-fornecedor-id="${p[7]}" data-fornecedor-nome="${p[1]}"><td><small>${p[0]}</small></td><td><b>${p[1]}</b>${badgeExtra}</td><td>${p[2] ? new Date(p[2]).toLocaleDateString() : '---'}</td><td><span class="badge bg-${cor}">${p[3]}</span></td><td class="text-end"><div class="dropdown"><button class="btn btn-sm btn-light border" type="button" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button><ul class="dropdown-menu dropdown-menu-end shadow"><li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Entregue')"><i class="fas fa-check text-success me-2"></i> Entregue Total</a></li><li><a class="dropdown-item" onclick="mudarStatusSimples('${p[0]}', 'Parcialmente Entregue')"><i class="fas fa-shipping-fast text-info me-2"></i> Entregue Parcial</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" onclick="verDetalhesCompleto('${p[0]}', '${p[7]}')"><i class="fas fa-search me-2"></i> Ver Itens/Faltas/Trocas</a></li><li><a class="dropdown-item" onclick="gerarPDF('${p[0]}')"><i class="fas fa-file-pdf me-2"></i> Gerar PDF</a></li><li><a class="dropdown-item text-danger" onclick="excluirPedido('${p[0]}')"><i class="fas fa-trash me-2"></i> Excluir</a></li></ul></div></td></tr>`;
-    }).join('');
-    var dropdowns = document.querySelectorAll('[data-bs-toggle="dropdown"]');
-    dropdowns.forEach(el => { new bootstrap.Dropdown(el); });
-  }
-  function mudarStatusSimples(id, novoStatus) {
-    if (novoStatus === 'Parcialmente Entregue') {
-      showLoad(true);
-      google.script.run.withSuccessHandler(itens => {
-        showLoad(false);
-        const tr = document.querySelector(`tr[data-pedido-id="${id}"]`);
-        const fornecedorId = tr ? tr.dataset.fornecedorId : null;
-        if (!fornecedorId) return mostrarToast("Erro: fornecedor não identificado", "error");
-        const itensFormatados = itens.map(i => ({ nome: i[1], qtdPedida: i[3] }));
-        abrirModalFaltantes(id, fornecedorId, itensFormatados);
-      }).getDetalhesPedido(id, sessionToken);
-      return;
-    }
-    if(!confirm("Mudar status para " + novoStatus + "?")) return;
-    showLoad(true);
-    google.script.run.withSuccessHandler(() => { showLoad(false); mostrarToast("Status atualizado!", "success"); atualizarTabelaStatus(); }).alterarStatusPedido(id, novoStatus, sessionToken);
-  }
-  function excluirPedido(id) { if(!confirm("Excluir?")) return; showLoad(true); google.script.run.withSuccessHandler(() => { mostrarToast("Excluído", "success"); atualizarTabelaStatus(); }).excluirPedido(id, sessionToken); }
-  
-  function gerarPDF(id) {
-  google.script.run.withSuccessHandler(url => { window.open(url); }).gerarPDFPedido(id, sessionToken);
-}
-
-  async function verDetalhesCompleto(pedidoId, fornecedorId) {
-    showLoad(true);
-    const itens = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getDetalhesPedido(pedidoId, sessionToken));
-    const faltantes = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getItensFaltantesNaoResolvidos(fornecedorId, sessionToken));
-    const trocas = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getTrocasPorFornecedor(fornecedorId, sessionToken));
-    showLoad(false);
-    let html = `<h6>📦 Itens do Pedido:</h6><ul class="list-group mb-3">`;
-    itens.forEach(i => {
-      let faltaInfo = faltantes.find(f => f.produto === i[1]);
-      let badgeFalta = faltaInfo ? ` <span class="badge bg-danger">Falta: ${faltaInfo.qtdFaltante}</span>` : '';
-      html += `<li class="list-group-item d-flex justify-content-between">${i[1]} - Qtd: ${i[3]} ${badgeFalta}<span>R$ ${parseFloat(i[2]).toFixed(2)}</span></li>`;
-    });
-    html += `</ul>`;
-    if (trocas.length > 0) {
-      html += `<h6>🔄 Trocas/Devoluções:</h6><ul class="list-group">`;
-      trocas.forEach(t => { html += `<li class="list-group-item">${new Date(t.data).toLocaleDateString()} - ${t.tipo}: ${t.produto} x${t.quantidade} - R$ ${parseFloat(t.valor).toFixed(2)} <span class="badge bg-secondary">${t.status}</span></li>`; });
-      html += `</ul>`;
-    } else { html += `<p class="text-muted">Nenhuma troca/devolução.</p>`; }
-    document.getElementById('conteudoModal').innerHTML = html;
-    document.getElementById('modalDetalhes').classList.remove('hidden');
-  }
-  function fecharModal() { document.getElementById('modalDetalhes').classList.add('hidden'); }
-  function fecharModalExterno(e) { if (e.target.id === 'modalDetalhes') fecharModal(); }
-
-  // ========== FALTANTES ==========
-  function abrirModalFaltantes(idPedido, idFornecedor, itens) {
-    pedidoAtualFaltantes = idPedido;
-    fornecedorAtualFaltantes = idFornecedor;
-    const tbody = document.getElementById('lista-itens-faltantes');
-    tbody.innerHTML = itens.map(i => `<tr><td class="fw-bold">${i.nome}</td><td class="text-center">${i.qtdPedida}</td><td><input type="number" class="form-control form-control-sm item-falha-qtd" max="${i.qtdPedida}" min="0" placeholder="0"></td></tr>`).join('');
-    document.getElementById('modalFaltantes').classList.remove('hidden');
-  }
-  function fecharModalFaltantes() { document.getElementById('modalFaltantes').classList.add('hidden'); pedidoAtualFaltantes = null; }
-  function salvarItensFaltantes() {
-    const faltantes = [];
-    document.querySelectorAll('#lista-itens-faltantes tr').forEach(row => {
-      const nome = row.cells[0].innerText;
-      const qtdFaltante = parseFloat(row.querySelector('.item-falha-qtd').value) || 0;
-      if (qtdFaltante > 0) faltantes.push({ nome, qtdFaltante });
-    });
-    if (faltantes.length === 0 && !confirm("Nenhum item faltante. Confirmar?")) return;
-    showLoad(true);
-    google.script.run.withSuccessHandler(() => {
-      google.script.run.withSuccessHandler(() => {
-        showLoad(false);
-        fecharModalFaltantes();
-        mostrarToast("Recebimento parcial registrado!", "success");
-        atualizarTabelaStatus();
-      }).alterarStatusPedido(pedidoAtualFaltantes, 'Parcialmente Entregue', sessionToken);
-    }).registrarItensFaltantes(pedidoAtualFaltantes, fornecedorAtualFaltantes, faltantes, sessionToken);
-  }
-
- function carregarProdutosParaTroca() {
-  const fornecedorId = document.getElementById('troca-fornecedor').value;
-  const selectProduto = document.getElementById('troca-produto');
-  selectProduto.innerHTML = '<option value="">Selecione o produto</option>';
-  if (!fornecedorId) return;
-  google.script.run.withSuccessHandler(produtos => {
-    const nomes = new Set();
-    produtos.forEach(p => { if (!nomes.has(p[2])) { nomes.add(p[2]); selectProduto.add(new Option(p[2], p[2])); } });
-  }).getProdutosPorFornecedor(fornecedorId, sessionToken);
 }
 
 function carregarPedidosParaTroca() {
@@ -786,9 +708,10 @@ function carregarPedidosParaTroca() {
   }).getPedidosStatus(sessionToken);
 }
 
-function salvarTroca() {
+function salvarTrocaFront() {
   const fornecedorId = document.getElementById('troca-fornecedor').value;
   if (!fornecedorId) return mostrarToast("Selecione um fornecedor", "error");
+  
   const troca = {
     pedidoId: document.getElementById('troca-pedido').value,
     fornecedorId: fornecedorId,
@@ -798,11 +721,13 @@ function salvarTroca() {
     tipo: document.getElementById('troca-tipo').value,
     observacao: document.getElementById('troca-obs').value
   };
+  
   if (!troca.produto) return mostrarToast("Selecione um produto", "error");
+  
   showLoad(true);
   google.script.run.withSuccessHandler(() => {
     showLoad(false);
-    mostrarToast("Registrado!", "success");
+    mostrarToast("Troca Registrada com Sucesso!", "success");
     document.getElementById('troca-produto').value = '';
     document.getElementById('troca-qtd').value = '';
     document.getElementById('troca-valor').value = '';
@@ -813,93 +738,42 @@ function salvarTroca() {
 
 function carregarTrocas() {
   const fornecedorId = document.getElementById('troca-fornecedor').value;
-  if (!fornecedorId) { document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8">Selecione um fornecedor</td></tr>'; return; }
+  if (!fornecedorId) { document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Selecione um fornecedor</td></tr>'; return; }
+  
   showLoad(true);
   google.script.run.withSuccessHandler(trocas => {
     showLoad(false);
     const tbody = document.getElementById('corpo-trocas');
+    if(trocas.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhuma troca ou devolução.</td></tr>'; return; }
+    
     tbody.innerHTML = trocas.map(t => `
-      <tr>
+      <tr class="align-middle">
         <td>${new Date(t.data).toLocaleDateString()}</td>
-        <td>${t.pedidoId || '-'}</td>
-        <td>${t.produto}</td>
-        <td>${t.quantidade}</td>
-        <td>R$ ${parseFloat(t.valor).toFixed(2)}</td>
+        <td><small class="text-muted">${t.pedidoId ? t.pedidoId.split('-')[1] || t.pedidoId : '-'}</small></td>
+        <td class="fw-bold">${t.produto}</td>
+        <td class="text-center">${t.quantidade}</td>
+        <td class="text-muted">R$ ${parseFloat(t.valor).toFixed(2)}</td>
         <td>${t.tipo === 'Troca' ? '🔄 Troca' : '⬅️ Devolução'}</td>
-        <td><span class="badge bg-${t.status === 'Resolvido' ? 'success' : 'warning'}">${t.status}</span></td>
-        <td>${t.status !== 'Resolvido' ? `<button class="btn btn-sm btn-success" onclick="resolverTroca('${t.id}')">Resolver</button>` : ''}</td>
+        <td><span class="badge bg-${t.status === 'Resolvido' ? 'success' : 'warning text-dark'}">${t.status}</span></td>
+        <td class="text-end">${t.status !== 'Resolvido' ? `<button class="btn btn-sm btn-success" onclick="resolverTrocaFront('${t.id}')">Resolver</button>` : '<i class="fas fa-check text-success"></i>'}</td>
       </tr>
     `).join('');
   }).getTrocasPorFornecedor(fornecedorId, sessionToken);
 }
 
-function resolverTroca(id) {
+function resolverTrocaFront(id) {
+  if(!confirm("Marcar como resolvida?")) return;
   showLoad(true);
   google.script.run.withSuccessHandler(() => {
     showLoad(false);
-    mostrarToast("Troca resolvida!", "success");
+    mostrarToast("Resolvido!", "success");
     carregarTrocas();
   }).resolverTroca(id, sessionToken);
 }
 
-function carregarAlertasPrazos() {
-  const container = document.getElementById('alertas-prazos');
-  const fechados = JSON.parse(localStorage.getItem('alertasFechados') || '[]');
-  google.script.run.withSuccessHandler(pedidos => {
-    const hoje = new Date();
-    const amanha = new Date(hoje);
-    amanha.setDate(hoje.getDate() + 1);
-    const alertas = pedidos.filter(p => {
-      if (p[3] !== 'Pendente') return false;
-      const prazo = p[4] ? new Date(p[4]) : null;
-      return prazo && prazo <= amanha && prazo >= hoje;
-    });
-    container.innerHTML = alertas.map(p => {
-      if (fechados.includes(p[0])) return '';
-      const prazo = new Date(p[4]);
-      const diff = Math.ceil((prazo - hoje) / (1000*60*60*24));
-      return `<div class="alert alert-warning alert-dismissible fade show" role="alert">⚠️ Pedido ${p[0]} - ${p[1]} tem prazo para ${prazo.toLocaleDateString()} (${diff === 0 ? 'hoje' : 'amanhã'}). <button type="button" class="btn-close" onclick="fecharAlerta('${p[0]}')"></button></div>`;
-    }).join('');
-  }).getPedidosStatus(sessionToken);
-}
 
-function fecharAlerta(idPedido) {
-  const fechados = JSON.parse(localStorage.getItem('alertasFechados') || '[]');
-  if (!fechados.includes(idPedido)) fechados.push(idPedido);
-  localStorage.setItem('alertasFechados', JSON.stringify(fechados));
-  carregarAlertasPrazos();
-}
-
-function enviarWhatsAppPedido() {
-  const fornecedor = document.getElementById('select-fornecedor').options[document.getElementById('select-fornecedor').selectedIndex]?.text;
-  let msg = `*NOVO PEDIDO*%0AFornecedor: ${fornecedor}%0A`;
-  itensPedidoTemp.forEach(i => { msg += `${i.nome} - ${i.qtd} x R$ ${i.preco.toFixed(2)}%0A`; });
-  const total = itensPedidoTemp.reduce((acc, i) => acc + (i.bonificado ? 0 : i.preco * i.qtd), 0);
-  msg += `Total: R$ ${total.toFixed(2)}%0APrazo: ${document.getElementById('ped-prazo').value || 'Não informado'}`;
-  window.open(`https://wa.me/?text=${msg}`, '_blank');
-}
-
-function enviarWhatsPedidoExistente(pedidoId) {
-  showLoad(true);
-  google.script.run.withSuccessHandler(itens => {
-    showLoad(false);
-    let msg = "*PEDIDO ${pedidoId}*\n";
-    itens.forEach(i => { 
-      msg += `${i[1]} - ${i[3]} x R$ ${parseFloat(i[2]).toFixed(2)}\n`; 
-    });
-    const textoCodificado = encodeURIComponent(msg);
-    window.open(`https://wa.me/?text=${textoCodificado}`, '_blank');
-  }).getDetalhesPedido(pedidoId, sessionToken);
-}
-
-  function carregarProducao() { document.getElementById('lista-ordens-producao').innerHTML = '<div class="card-pedido">Módulo em desenvolvimento</div>'; }
-  function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); document.querySelector('.main-content').classList.toggle('expanded'); localStorage.setItem('sidebarCollapsed', document.getElementById('sidebar').classList.contains('collapsed')); }
-
-  document.getElementById('menu-toggle')?.addEventListener('click', toggleSidebar);
-  window.addEventListener('load', function() { const collapsed = localStorage.getItem('sidebarCollapsed') === 'true'; if (collapsed) { document.getElementById('sidebar').classList.add('collapsed'); document.querySelector('.main-content').classList.add('expanded'); } });
-  document.addEventListener('input', function(e) { if(e.target.classList && e.target.classList.contains('qtd-item')) calcularTotais(); });
-  document.getElementById('troca-fornecedor')?.addEventListener('change', () => { carregarProdutosTroca(); carregarPedidosParaTroca(); carregarTrocas(); });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+
 </body>
 </html>
