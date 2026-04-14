@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      :root { --primary: #4c1130; --bg: #f0f2f5; }
+      body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; }
+
+      /* SIDEBAR PC */
+      .sidebar { width: 250px; position: fixed; height: 100%; background: var(--primary); color: white; padding: 20px; display: none; }
+      .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; border-radius: 8px; margin-bottom: 5px; }
+      .sidebar a:hover { background: rgba(255,255,255,0.1); }
+
+      /* NAV MOBILE */
+      .nav-bottom { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 10px; border-top: 1px solid #ddd; z-index: 1000; }
+      .nav-item { text-align: center; font-size: 12px; color: #666; text-decoration: none; cursor: pointer; }
+      .nav-item.active { color: var(--primary); font-weight: bold; }
+
+      /* CONTEÚDO */
+      .main-content { padding: 15px; transition: 0.3s; }
+      .card-pedido { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: none; }
+      .hidden { display: none !important; }
+      .btn-main { background: var(--primary); color: white; border-radius: 8px; padding: 12px; border: none; width: 100%; font-weight: bold; }
+
+      /* AJUSTE RESPONSIVO */
+      @media (min-width: 768px) {
+        .sidebar { display: block; }
+        .nav-bottom { display: none; }
+        .main-content { margin-left: 250px; padding: 40px; }
+      }
+
+      /* Switch Bonificado */
+      .form-switch .form-check-input { width: 2.5em; height: 1.2em; }
+    </style>
+  </head>
+  <body>
+
+    <div id="sidebar" class="sidebar">
+      <h4>MERCADO 1.0</h4>
+      <hr>
+      <a href="#" class="menu-gerente" onclick="mostrarModulo('novo-pedido')">🛒 Novo Pedido</a>
+      <a href="#" class="menu-gerente" onclick="mostrarModulo('status')">📊 Acompanhamento</a>
+      <a href="#" class="menu-operador" onclick="mostrarModulo('padaria')">🥖 Produção Padaria</a>
+      <hr>
+      <a href="#" onclick="location.reload()">Sair</a>
+    </div>
+
+    <div class="main-content">
+      
+      <div id="tela-login" class="mt-5 text-center">
+        <h2 class="mb-4" style="color: var(--primary)">LOGIN</h2>
+        <div class="card-pedido mx-auto" style="max-width: 400px">
+          <input type="text" id="user" class="form-control mb-3" placeholder="Usuário">
+          <input type="password" id="pass" class="form-control mb-3" placeholder="Senha">
+          <button class="btn-main" onclick="login()">ENTRAR</button>
+        </div>
+      </div>
+
+      <div id="modulo-novo-pedido" class="hidden">
+        <h3>📦 Novo Pedido</h3>
+        <div class="card-pedido">
+          <select id="select-fornecedor" class="form-select mb-3" onchange="carregarHistorico()"></select>
+          <div id="itens-historico"></div>
+          <button class="btn-main mt-3" onclick="finalizarPedido()">SALVAR PEDIDO</button>
+        </div>
+      </div>
+
+      <div id="modulo-padaria" class="hidden">
+        <h3>🥖 Produção da Padaria</h3>
+        <div id="lista-ordens-producao">
+           </div>
+      </div>
+
+      <div id="modulo-status" class="hidden">
+        <h3>📊 Status de Pedidos</h3>
+        <div id="lista-pedidos-status"></div>
+      </div>
+
+    </div>
+
+    <div id="nav-bar" class="nav-bottom hidden">
+      <div class="nav-item menu-gerente" onclick="mostrarModulo('novo-pedido')">🛒<br>Pedidos</div>
+      <div class="nav-item menu-gerente" onclick="mostrarModulo('status')">📊<br>Status</div>
+      <div class="nav-item menu-operador" onclick="mostrarModulo('padaria')">🥖<br>Padaria</div>
+    </div>
+
+    <script>
+      function login() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        google.script.run.withSuccessHandler(function(res) {
+          if(res.sucesso) {
+            document.getElementById('tela-login').classList.add('hidden');
+            document.getElementById('nav-bar').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            
+            // Controle de Acesso: Esconde o que não é do perfil
+            if(res.usuario.perfil !== 'Gerente') {
+              document.querySelectorAll('.menu-gerente').forEach(el => el.classList.add('hidden'));
+              mostrarModulo('padaria');
+            } else {
+              carregarFornecedores();
+              mostrarModulo('novo-pedido');
+            }
+          } else { alert(res.mensagem); }
+        }).validarLogin(u, p);
+      }
+
+      function mostrarModulo(mod) {
+        // Esconde tudo primeiro
+        ['modulo-novo-pedido', 'modulo-status', 'modulo-padaria'].forEach(id => {
+          document.getElementById(id).classList.add('hidden');
+        });
+        document.getElementById('modulo-' + mod).classList.remove('hidden');
+        
+        if(mod === 'padaria') carregarProducao();
+        if(mod === 'status') atualizarTabelaStatus();
+      }
+
+      function carregarHistorico() {
+        const idForn = document.getElementById('select-fornecedor').value;
+        const container = document.getElementById('itens-historico');
+        container.innerHTML = "Buscando histórico...";
+        
+        google.script.run.withSuccessHandler(function(produtos) {
+          container.innerHTML = "";
+          produtos.forEach((p, index) => {
+            container.innerHTML += `
+              <div class="card-pedido p-2 mb-2">
+                <div class="row align-items-center">
+                  <div class="col-6"><strong>${p[2]}</strong></div>
+                  <div class="col-6">
+                    <div class="form-check form-switch float-end">
+                      <input class="form-check-input check-bonif" type="checkbox" id="bonif-${index}">
+                      <label class="small">Bonif.</label>
+                    </div>
+                  </div>
+                  <div class="col-12 mt-2">
+                    <input type="number" class="form-control qtd-item" data-nome="${p[2]}" data-preco="${p[3]}" placeholder="Quantidade">
+                  </div>
+                </div>
+              </div>`;
+          });
+        }).getProdutosPorFornecedor(idForn);
+      }
+
+      function carregarProducao() {
+        google.script.run.withSuccessHandler(function(ordens) {
+          const container = document.getElementById('lista-ordens-producao');
+          container.innerHTML = ordens.length ? "" : "Nenhuma ordem para agora.";
+          ordens.forEach(o => {
+            container.innerHTML += `
+              <div class="card-pedido border-start border-4 border-warning">
+                <h5>${o[1]} - ${o[2]}</h5>
+                <p>Status: ${o[3]}</p>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-success w-50" onclick="finalizarOrdem('${o[0]}', 'Sucesso')">CONCLUÍDO</button>
+                  <button class="btn btn-danger w-50" onclick="reportarErro('${o[0]}')">ERRO/FALTA</button>
+                </div>
+              </div>`;
+          });
+        }).getOrdensProducao();
+      }
+
+      function reportarErro(id) {
+        const motivo = prompt("Motivo: 1-Faltou Mercadoria | 2-Faltou Tempo | 3-Outro");
+        const obs = prompt("Observação adicional:");
+        let motivoTexto = (motivo == "1") ? "Faltou Mercadoria" : (motivo == "2") ? "Faltou Tempo" : "Outro";
+        
+        google.script.run.withSuccessHandler(() => {
+          alert("Erro registrado. Gerência notificada.");
+          carregarProducao();
+        }).registrarProducao(id, "PRODUTO_GERAL", "Falha", motivoTexto, obs);
+      }
+      
+      
+      function atualizarTabelaStatus() {
+        google.script.run.withSuccessHandler(function(pedidos) {
+          const div = document.getElementById('lista-pedidos-status');
+          div.innerHTML = "";
+          pedidos.reverse().forEach(p => {
+            div.innerHTML += `
+              <div class="card-pedido">
+                <div class="d-flex justify-content-between">
+                  <strong>${p[1]}</strong>
+                  <span class="status-badge bg-primary text-white">${p[3]}</span>
+                </div>
+                <small class="text-muted">ID: ${p[0]} | Data: ${new Date(p[2]).toLocaleDateString()}</small>
+                <div class="mt-2">
+                   <button class="btn btn-sm btn-outline-secondary">Editar</button>
+                   <button class="btn btn-sm btn-success">Recebido</button>
+                </div>
+              </div>`;
+          });
+        }).getPedidosStatus();
+      }
+      
+      // Adiciona um item que não está no histórico
+          function adicionarLinhaManual() {
+            const nome = document.getElementById('novo-item-nome').value;
+            if (!nome) return alert("Digite o nome do produto");
+            
+            const container = document.getElementById('itens-historico');
+            const novaLinha = `
+              <div class="item-row row">
+                <div class="col-7 text-primary"><strong>* ${nome}</strong></div>
+                <div class="col-5"><input type="number" class="form-control qtd-item" data-nome="${nome}" data-preco="0" placeholder="Qtd"></div>
+              </div>`;
+            container.insertAdjacentHTML('afterbegin', novaLinha);
+            document.getElementById('novo-item-nome').value = "";
+          }
+
+          // Coleta os dados da tela e envia para o Google Sheets
+          function finalizarPedido() {
+            const fornecedor = document.getElementById('select-fornecedor').value;
+            const obs = document.getElementById('obs-pedido').value;
+            const inputs = document.querySelectorAll('.qtd-item');
+            
+            let itens = [];
+            inputs.forEach(input => {
+              if (input.value > 0) {
+                itens.push({
+                  nome: input.dataset.nome,
+                  preco: input.dataset.preco,
+                  qtd: input.value,
+                  bonificado: "Não", // Aqui você pode adicionar um checkbox no HTML depois
+                  validade: ""
+                });
+              }
+            });
+
+            if (itens.length === 0) return alert("Adicione pelo menos um item!");
+
+            google.script.run.withSuccessHandler(function(id) {
+              alert("Pedido " + id + " gerado com sucesso!");
+              mostrarModulo('status');
+            }).salvarPedido({fornecedor, obs, itens, prazo: "A combinar"});
+          }
+      // Outras funções de salvar e adicionar itens seguirão a mesma lógica...
+    </script>
+  </body>
+</html>
