@@ -1,4 +1,4 @@
-const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg"; // Substitui pelo ID real!
+const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg";
 
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
@@ -8,7 +8,7 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// ===================== AUTENTICAÇÃO (CACHE SEGURO) =====================
+// ===================== AUTENTICAÇÃO =====================
 function validarLogin(usuario, senha) {
   try {
     const ss = SpreadsheetApp.openById(ID_PLANILHA);
@@ -18,12 +18,14 @@ function validarLogin(usuario, senha) {
       if (dados[i][2].toString() === usuario && dados[i][3].toString() === senha) {
         const token = Utilities.getUuid();
         const usr = { nome: dados[i][1], perfil: dados[i][4], status: dados[i][5] };
-        CacheService.getScriptCache().put(token, JSON.stringify(usr), 14400); // 4 horas
+        CacheService.getScriptCache().put(token, JSON.stringify(usr), 14400);
         return { sucesso: true, token: token, usuario: usr };
       }
     }
     return { sucesso: false, mensagem: "Usuário ou senha incorretos." };
-  } catch (e) { return { sucesso: false, mensagem: "Erro interno: " + e.message }; }
+  } catch (e) {
+    return { sucesso: false, mensagem: "Erro interno: " + e.message };
+  }
 }
 
 function verificarSessao(token) {
@@ -33,6 +35,11 @@ function verificarSessao(token) {
 function logout(token) {
   if (token) CacheService.getScriptCache().remove(token);
   return true;
+}
+
+function forcarAutorizacao() {
+  SpreadsheetApp.openById(ID_PLANILHA).getName();
+  return "Autorização OK! Recarregue a página.";
 }
 
 // ===================== FORNECEDORES =====================
@@ -56,12 +63,13 @@ function getFornecedores(token) {
 // ===================== PRODUTOS E PEDIDOS =====================
 function getProdutosPorFornecedor(idFornecedor, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Produtos");
-  if (!aba) return [];
-  const dados = aba.getDataRange().getValues();
-  if (dados.length <= 1) return [];
-  // Retorna produtos do fornecedor específico
-  return dados.slice(1).filter(r => r[1].toString() === idFornecedor.toString());
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const abaProdutos = ss.getSheetByName("Produtos");
+  if (!abaProdutos) return [];
+  const dados = abaProdutos.getDataRange().getValues();
+  return dados.slice(1)
+    .filter(row => row[1].toString() === idFornecedor.toString())
+    .map(row => row.map(c => (c instanceof Date ? c.toISOString() : c)));
 }
 
 function salvarPedido(pedido, token) {
@@ -70,44 +78,30 @@ function salvarPedido(pedido, token) {
   const abaMestre = ss.getSheetByName("Pedidos_Mestre");
   const abaItens = ss.getSheetByName("Pedidos_Itens");
   const abaProdutos = ss.getSheetByName("Produtos");
-  
   const idPedido = "PED-" + Date.now();
   
-  // 1. Salva o Fechamento (Mestre)
-  abaMestre.appendRow([idPedido, pedido.nomeFornecedor, new Date(), "Pendente", pedido.prazo, pedido.financeiro, pedido.obs]);
+  abaMestre.appendRow([idPedido, pedido.nomeFornecedor, new Date(), "Pendente", pedido.prazo, pedido.financeiro, pedido.obs, pedido.idFornecedor]);
   
-  // 2. Busca produtos existentes para não duplicar no histórico
-  const produtosAtuais = abaProdutos.getDataRange().getValues().map(r => r[2].toString().toLowerCase());
-  
-  // 3. Salva os Itens
+  const produtosExistentes = abaProdutos.getDataRange().getValues()
+    .filter(r => r[1].toString() === pedido.idFornecedor.toString())
+    .map(r => r[2].toString().toLowerCase());
+    
   for (let item of pedido.itens) {
     abaItens.appendRow([idPedido, item.nome, item.preco, item.qtd, item.bonificado, item.validade]);
-    
-    // SEGREDO DO HISTÓRICO: Se o item é novo, salva automaticamente no cadastro de produtos!
-    if (!produtosAtuais.includes(item.nome.toLowerCase())) {
-      abaProdutos.appendRow(["PROD-" + Date.now(), pedido.idFornecedor, item.nome, item.preco]);
-      produtosAtuais.push(item.nome.toLowerCase()); // atualiza array temporário
+    if (!produtosExistentes.includes(item.nome.toLowerCase())) {
+      abaProdutos.appendRow(["PROD-" + Date.now(), pedido.idFornecedor, item.nome, item.preco, ""]);
     }
   }
   return idPedido;
 }
 
 function getPedidosStatus(token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const aba = ss.getSheetByName("Pedidos_Mestre");
-  
-  if (!aba) {
-    throw new Error("A aba 'Pedidos_Mestre' não existe. Verifica o nome!");
-  }
-  
+  if (!verificarSessao(token)) throw new Error("Sessão expirada");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
   const dados = aba.getDataRange().getValues();
-  
-  // Se só tiver o cabeçalho, a lista está vazia
-  if (dados.length <= 1) return []; 
-  
-  return dados.slice(1); // Devolve os pedidos todos
+  if (dados.length <= 1) return [];
+  // Converte datas para texto para o Javascript não crashar
+  return dados.slice(1).map(r => r.map(c => c instanceof Date ? c.toISOString() : c));
 }
 
 function alterarStatusPedido(idPedido, novoStatus, token) {
@@ -116,7 +110,7 @@ function alterarStatusPedido(idPedido, novoStatus, token) {
   const dados = aba.getDataRange().getValues();
   for (let i = 1; i < dados.length; i++) {
     if (dados[i][0] === idPedido) {
-      aba.getRange(i + 1, 4).setValue(novoStatus);
+      aba.getRange(i+1, 4).setValue(novoStatus);
       return true;
     }
   }
@@ -127,9 +121,9 @@ function excluirPedido(idPedido, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
   const dados = aba.getDataRange().getValues();
-  for (let i = dados.length - 1; i >= 1; i--) {
+  for (let i = dados.length-1; i >= 1; i--) {
     if (dados[i][0] === idPedido) {
-      aba.deleteRow(i + 1);
+      aba.deleteRow(i+1);
       return true;
     }
   }
@@ -139,11 +133,50 @@ function excluirPedido(idPedido, token) {
 function getDetalhesPedido(idPedido, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Itens");
+  if (!aba) return [];
   const dados = aba.getDataRange().getValues();
-  return dados.slice(1).filter(r => r[0] === idPedido);
+  return dados.slice(1)
+    .filter(r => r[0] === idPedido)
+    .map(row => row.map(cell => (cell instanceof Date ? cell.toISOString() : cell)));
 }
 
-function forcarAutorizacao() {
-  SpreadsheetApp.openById(ID_PLANILHA).getName();
-  return "Autorização OK! Recarregue a página.";
+// ===================== ITENS FALTANTES =====================
+function registrarItensFaltantes(pedidoId, fornecedorId, itensFaltantes, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  let aba = ss.getSheetByName("Itens_Faltantes");
+  if (!aba) {
+    aba = ss.insertSheet("Itens_Faltantes");
+    aba.appendRow(["ID_Pedido", "Fornecedor_ID", "Produto", "Quantidade_Faltante", "Data_Registro", "Status"]);
+  }
+  itensFaltantes.forEach(item => {
+    aba.appendRow([pedidoId, fornecedorId, item.nome, item.qtdFaltante, new Date().toISOString(), "Pendente"]);
+  });
+  return true;
+}
+
+function getItensFaltantesPorFornecedor(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const aba = ss.getSheetByName("Itens_Faltantes");
+  if (!aba) return [];
+  const dados = aba.getDataRange().getValues();
+  if (dados.length <= 1) return [];
+  return dados.slice(1)
+    .filter(row => row[1].toString() === fornecedorId.toString() && row[5] === "Pendente")
+    .map(row => ({ pedidoId: row[0], produto: row[2], quantidade: row[3], data: row[4] }));
+}
+
+function marcarItensFaltantesComoResolvidos(fornecedorId, produtos, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const aba = ss.getSheetByName("Itens_Faltantes");
+  if (!aba) return false;
+  const dados = aba.getDataRange().getValues();
+  for (let i = 1; i < dados.length; i++) {
+    if (dados[i][1].toString() === fornecedorId.toString() && produtos.includes(dados[i][2])) {
+      aba.getRange(i+1, 6).setValue("Resolvido");
+    }
+  }
+  return true;
 }
