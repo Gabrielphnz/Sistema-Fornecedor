@@ -59,6 +59,7 @@
   </style>
 </head>
 <body>
+<datalist id="catalogo-produtos"></datalist>
 
 <button id="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
 <div id="spinner" class="spinner-overlay"><div class="spinner-border" role="status"></div></div>
@@ -371,34 +372,42 @@
   let pedidosEmCache = [];
   let pedidoSelecionadoVisualizador = null;
   let historicoPrecos = {};
+  let pedidoParaSalvar = null;
+  let pedidoRecemSalvo = null;
 
-  function mostrarToast(msg, tipo = "info") {
+  function mostrarToast(msg, tipo) {
+    if (!tipo) tipo = 'info';
     const c = document.getElementById('toastContainer');
     const t = document.createElement('div');
     t.className = 'toast-custom';
-    t.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle text-success' : tipo === 'error' ? 'exclamation-circle text-danger' : 'info-circle text-info'}"></i> ${msg}`;
+    t.innerHTML = '<span>' + msg + '</span>';
     c.appendChild(t);
-    setTimeout(() => t.remove(), 3000);
+    setTimeout(function(){ t.remove(); }, 3000);
   }
   
-  function showLoad(s) { document.getElementById('spinner').style.visibility = s ? 'visible' : 'hidden'; }
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('collapsed');
-    document.getElementById('main-content').classList.toggle('expanded');
+  function showLoad(s) { 
+    document.getElementById('spinner').style.visibility = s ? 'visible' : 'hidden'; 
   }
-  function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
+  
+  function toggleSidebar() { 
+    document.getElementById('sidebar').classList.toggle('collapsed'); 
+    document.getElementById('main-content').classList.toggle('expanded'); 
+  }
+  
+  function fecharModal(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+  }
 
-  // ========== INIT & NAVEGAÇÃO ==========
+  // ========== AUTENTICAÇÃO ==========
   function login() {
-    // Limpa espaços em branco ocultos no início e fim
     const user = document.getElementById('user').value.trim();
     const pass = document.getElementById('pass').value.trim();
     
-    if(!user || !pass) return mostrarToast("Preencha o utilizador e a senha.", "error");
+    if(!user || !pass) return mostrarToast('Preencha os campos.', 'error');
 
     showLoad(true);
     google.script.run
-      .withSuccessHandler(res => {
+      .withSuccessHandler(function(res) {
         showLoad(false);
         if (res && res.sucesso) {
           sessionToken = res.token;
@@ -407,11 +416,13 @@
           carregarDropdownFornecedores();
           atualizarTabelaStatus();
           mostrarModulo('status');
-        } else { mostrarToast(res.mensagem, "error"); }
+        } else { 
+          mostrarToast(res.mensagem, 'error'); 
+        }
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao conectar: " + err, "error");
+      .withFailureHandler(function(err) { 
+        showLoad(false); 
+        mostrarToast('Erro de ligação: ' + err, 'error'); 
       })
       .validarLogin(user, pass);
   }
@@ -419,29 +430,30 @@
   function logout() { location.reload(); }
   
   function mostrarModulo(mod) {
-    document.querySelectorAll('.main-content > div:not(#menu-toggle):not(#tela-login)').forEach(el => el.classList.add('hidden'));
-    document.getElementById('modulo-'+mod).classList.remove('hidden');
+    document.querySelectorAll('.main-content > div:not(#menu-toggle):not(#tela-login)').forEach(function(el) { 
+      el.classList.add('hidden'); 
+    });
+    
+    const target = document.getElementById('modulo-' + mod);
+    if(target) target.classList.remove('hidden');
+    
     if(mod === 'fornecedores') carregarCardsFornecedores();
     if(window.innerWidth <= 768) toggleSidebar();
-    if(mod === 'trocas') { carregarFornecedoresTroca(); }
-    if(mod === 'dashboard') { carregarDashboard(); }
+    if(mod === 'trocas') carregarFornecedoresTroca();
+    if(mod === 'dashboard') carregarDashboard();
   }
 
   // ========== DASHBOARD ==========
   function carregarDashboard() {
     showLoad(true);
     google.script.run
-      .withSuccessHandler(data => {
+      .withSuccessHandler(function(data) {
         showLoad(false);
         document.getElementById('dash-total').innerText = 'R$ ' + (data.totalMes || 0).toFixed(2);
         
-        let pendentes = 0;
-        let total = 0;
-        let entregues = 0;
-        Object.values(data.pedidosPorFornecedor || {}).forEach(f => {
-          total += f.total;
-          entregues += f.entregues;
-          pendentes += (f.total - f.entregues);
+        let pendentes = 0; let total = 0; let entregues = 0;
+        Object.values(data.pedidosPorFornecedor || {}).forEach(function(f) {
+          total += f.total; entregues += f.entregues; pendentes += (f.total - f.entregues);
         });
         
         document.getElementById('dash-pendentes').innerText = pendentes;
@@ -449,74 +461,78 @@
         document.getElementById('dash-taxa').innerText = taxa + '%';
         
         let ranking = '<ul class="list-group">';
-        (data.ranking || []).forEach(r => {
-          ranking += `<li class="list-group-item d-flex justify-content-between"><span>${r.nome}</span><span class="fw-bold">R$ ${r.gasto.toFixed(2)}</span></li>`;
+        (data.ranking || []).forEach(function(r) {
+          ranking += '<li class="list-group-item d-flex justify-content-between"><span>' + r.nome + '</span><span class="fw-bold">R$ ' + r.gasto.toFixed(2) + '</span></li>';
         });
         ranking += '</ul>';
         document.getElementById('dash-ranking').innerHTML = ranking;
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao carregar dashboard: " + err, "error");
+      .withFailureHandler(function(err){ 
+        showLoad(false); mostrarToast('Erro no Dashboard', 'error'); 
       })
       .getDashboardData(sessionToken);
   }
 
   // ========== FORNECEDORES ==========
-  function abrirModalFornecedor() { document.getElementById('modalFornecedor').classList.remove('hidden'); }
+  function abrirModalFornecedor() { 
+    document.getElementById('modalFornecedor').classList.remove('hidden'); 
+  }
   
   function salvarNovoFornecedor() {
-    const dados = { nome: document.getElementById('cad-forn-nome').value, contato: document.getElementById('cad-forn-tel').value, diaEntrega: document.getElementById('cad-forn-dia').value };
-    if(!dados.nome) return mostrarToast("Nome obrigatório", "error");
+    const dados = { 
+      nome: document.getElementById('cad-forn-nome').value, 
+      contato: document.getElementById('cad-forn-tel').value, 
+      diaEntrega: document.getElementById('cad-forn-dia').value 
+    };
+    if(!dados.nome) return mostrarToast('Nome obrigatório', 'error');
+    
     showLoad(true);
     google.script.run
-      .withSuccessHandler(() => {
-        showLoad(false); fecharModal('modalFornecedor'); mostrarToast("Fornecedor Salvo!", "success");
-        carregarDropdownFornecedores(); carregarCardsFornecedores();
+      .withSuccessHandler(function() {
+        showLoad(false); 
+        fecharModal('modalFornecedor'); 
+        mostrarToast('Fornecedor Salvo', 'success');
+        carregarDropdownFornecedores(); 
+        carregarCardsFornecedores();
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao salvar: " + err, "error");
+      .withFailureHandler(function(err){ 
+        showLoad(false); mostrarToast('Erro ao salvar', 'error'); 
       })
       .salvarFornecedor(dados, sessionToken);
   }
   
   function carregarCardsFornecedores() {
     google.script.run
-      .withSuccessHandler(lista => {
-        const container = document.getElementById('lista-fornecedores');
-        container.innerHTML = lista.map(f => `
-          <div class="col-md-6 col-lg-4 forn-card" data-nome="${f.nome.toLowerCase()}">
-            <div class="border p-3 rounded bg-white shadow-sm h-100 border-start border-4 border-primary">
-              <h5 class="fw-bold text-primary mb-1">${f.nome}</h5>
-              <small class="text-muted d-block mb-2"><i class="fab fa-whatsapp text-success"></i> ${f.contato || 'Sem número'}</small>
-              <span class="badge bg-light text-dark border"><i class="fas fa-calendar-day"></i> Entrega: ${f.diaEntrega || 'N/D'}</span>
-            </div>
-          </div>
-        `).join('');
-      })
-      .withFailureHandler(err => {
-        mostrarToast("Erro ao carregar fornecedores: " + err, "error");
+      .withSuccessHandler(function(lista) {
+        let html = '';
+        lista.forEach(function(f) {
+          const nm = f.nome || 'S/ Nome';
+          html += '<div class="col-md-6 col-lg-4 forn-card" data-nome="' + nm.toLowerCase() + '">';
+          html += '<div class="border p-3 rounded bg-white shadow-sm h-100 border-start border-4 border-primary">';
+          html += '<h5 class="fw-bold text-primary mb-1">' + nm + '</h5>';
+          html += '<small class="text-muted d-block mb-2">Tel: ' + (f.contato || '') + '</small>';
+          html += '<span class="badge bg-light text-dark border">Entrega: ' + (f.diaEntrega || '') + '</span></div></div>';
+        });
+        document.getElementById('lista-fornecedores').innerHTML = html;
       })
       .getFornecedores(sessionToken);
   }
   
   function filtrarFornecedores() {
     const termo = document.getElementById('busca-forn').value.toLowerCase();
-    document.querySelectorAll('.forn-card').forEach(c => { c.style.display = c.dataset.nome.includes(termo) ? 'block' : 'none'; });
+    document.querySelectorAll('.forn-card').forEach(function(c) {
+      c.style.display = c.dataset.nome.includes(termo) ? 'block' : 'none';
+    });
   }
 
-  // ========== NOVO PEDIDO ==========
+// ========== NOVO PEDIDO (COM CATÁLOGO E REPOSIÇÃO) ==========
   function carregarDropdownFornecedores() {
-    google.script.run
-      .withSuccessHandler(lista => {
-        const sel = document.getElementById('select-fornecedor');
-        sel.innerHTML = '<option value="">1. Selecione o Fornecedor...</option>' + lista.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
-      })
-      .withFailureHandler(err => {
-        mostrarToast("Erro ao carregar fornecedores: " + err, "error");
-      })
-      .getFornecedores(sessionToken);
+    google.script.run.withSuccessHandler(function(lista) {
+      lista = lista || [];
+      let html = '<option value="">1. Selecione o Fornecedor...</option>';
+      lista.forEach(function(f) { html += '<option value="' + f.id + '">' + f.nome + '</option>'; });
+      document.getElementById('select-fornecedor').innerHTML = html;
+    }).getFornecedores(sessionToken);
   }
   
   function carregarHistorico() {
@@ -527,28 +543,46 @@
     
     rep.style.display='flex'; tab.classList.remove('hidden');
     document.getElementById('corpo-novo-pedido').innerHTML = '';
-    adicionarLinhaVazia(); 
     
-    const selectRepetir = document.getElementById('select-repetir');
-    const pedidosForn = pedidosEmCache.filter(p => p[7] === idForn);
-    selectRepetir.innerHTML = '<option value="">🔄 Digitar novo ou Repetir anterior?</option>' + 
-      pedidosForn.slice(0, 5).map(p => `<option value="${p[0]}">${new Date(p[2]).toLocaleDateString()} - ${p[3]}</option>`).join('');
-    
-    carregarHistoricoPrecos(idForn);
-  }
-  
-  function carregarHistoricoPrecos(idForn) {
-    google.script.run.withSuccessHandler(pedidos => {
+    showLoad(true);
+
+    // 1. Carrega o Catálogo para o Autocomplete e Preços Ocultos
+    google.script.run.withSuccessHandler(function(catalogo) {
+      catalogo = catalogo || [];
       historicoPrecos = {};
-      if (pedidos.length > 0) {
-        const ultimoPedidoId = pedidos[0][0];
-        google.script.run.withSuccessHandler(itens => {
-          itens.forEach(i => {
-            historicoPrecos[i[1].toLowerCase()] = parseFloat(i[2]);
+      let datalistHtml = '';
+      
+      catalogo.forEach(function(item) {
+        historicoPrecos[item.nome.toLowerCase()] = item.preco;
+        datalistHtml += '<option value="' + item.nome + '">';
+      });
+      document.getElementById('catalogo-produtos').innerHTML = datalistHtml;
+
+      // 2. Busca Faltas Pendentes e Injeta Automaticamente
+      google.script.run.withSuccessHandler(function(faltas) {
+        showLoad(false);
+        faltas = faltas || [];
+        
+        if (faltas.length > 0) {
+          mostrarToast("⚠️ " + faltas.length + " item(ns) pendente(s) da última entrega foram adicionados!", "info");
+          faltas.forEach(function(f) {
+            let precoAntigo = historicoPrecos[f.nome.toLowerCase()] || 0;
+            adicionarLinhaVazia(f.nome, f.qtd, precoAntigo, true); // true = é reposição
           });
-        }).getDetalhesPedido(ultimoPedidoId, sessionToken);
-      }
-    }).getUltimosPedidosFornecedor(idForn, sessionToken);
+        }
+        
+        // Adiciona uma linha em branco para começar o pedido atual
+        adicionarLinhaVazia(); 
+
+        // 3. Monta o Select de Repetir Pedido
+        let repHtml = '<option value="">🔄 Digitar novo ou Repetir anterior?</option>';
+        (pedidosEmCache || []).filter(function(p){ return p[7] === idForn; }).slice(0, 5).forEach(function(p) {
+          repHtml += '<option value="' + p[0] + '">' + (p[2] ? new Date(p[2]).toLocaleDateString() : '') + ' - ' + (p[3] || '') + '</option>';
+        });
+        document.getElementById('select-repetir').innerHTML = repHtml;
+
+      }).getFaltasPendentesPorFornecedor(idForn, sessionToken);
+    }).getCatalogoFornecedor(idForn, sessionToken);
   }
 
   function calcularDataPrazo() {
@@ -556,22 +590,24 @@
     const txt = document.getElementById('txt-data-prazo');
     if(isNaN(dias) || dias <= 0) { txt.innerText = ''; return; }
     let d = new Date(); d.setDate(d.getDate() + dias);
-    txt.innerText = "Chega em: " + d.toLocaleDateString();
+    txt.innerText = 'Chega em: ' + d.toLocaleDateString();
   }
 
-  function adicionarLinhaVazia(nome='', qtd='', preco='') {
+  function adicionarLinhaVazia(nome, qtd, preco, isReposicao) {
+    nome = nome || ''; qtd = qtd || ''; preco = preco || '';
     const tr = document.createElement('tr');
-    tr.className = "linha-editavel border-bottom";
-    tr.innerHTML = `
-      <td>
-        <input type="text" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto..." value="${nome}" oninput="verificarInflacao(this)">
-        <small class="alerta-inflacao hidden"></small>
-      </td>
-      <td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="${qtd}" oninput="calcTabela()"></td>
-      <td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="${preco}" oninput="calcTabela(); verificarInflacao(this.closest('tr').querySelector('.fn-nome'))"></td>
-      <td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>
-      <td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest('tr').remove(); calcTabela();"></i></td>
-    `;
+    tr.className = 'linha-editavel border-bottom';
+    
+    // Etiqueta visual para quando é um item que faltou na última entrega
+    let badge = isReposicao ? '<span class="badge bg-warning text-dark ms-2" style="font-size:10px;">Reposição</span>' : '';
+    
+    let h1 = '<td><div class="d-flex align-items-center"><input type="text" list="catalogo-produtos" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)">' + badge + '</div><small class="alerta-inflacao hidden"></small></td>';
+    let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
+    let h3 = '<td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="' + preco + '" oninput="calcTabela(); verificarInflacao(this.closest(' + "'tr'" + ').querySelector(' + "'.fn-nome'" + '))"></td>';
+    let h4 = '<td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>';
+    let h5 = '<td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest(' + "'tr'" + ').remove(); calcTabela();"></i></td>';
+    
+    tr.innerHTML = h1 + h2 + h3 + h4 + h5;
     document.getElementById('corpo-novo-pedido').appendChild(tr);
     calcTabela();
   }
@@ -583,17 +619,13 @@
     const alerta = tr.querySelector('.alerta-inflacao');
     
     if (historicoPrecos[nome] && precoAtual > 0) {
-      const precoAntigo = historicoPrecos[nome];
-      const aumento = (precoAtual - precoAntigo) / precoAntigo;
-      if (aumento >= 0.1) {
-        alerta.innerText = `⚠️ ${(aumento * 100).toFixed(0)}% mais caro que o último pedido (R$ ${precoAntigo.toFixed(2)})`;
-        alerta.classList.remove('hidden');
-      } else {
-        alerta.classList.add('hidden');
-      }
-    } else {
-      alerta.classList.add('hidden');
-    }
+      const pAnt = historicoPrecos[nome];
+      const aum = (precoAtual - pAnt) / pAnt;
+      if (aum >= 0.1) { 
+        alerta.innerText = '⚠️ Mais caro que R$ ' + pAnt.toFixed(2); 
+        alerta.classList.remove('hidden'); 
+      } else { alerta.classList.add('hidden'); }
+    } else { alerta.classList.add('hidden'); }
   }
 
   function repetirPedido() {
@@ -601,450 +633,432 @@
     if(!id) return;
     showLoad(true);
     google.script.run
-      .withSuccessHandler(itens => {
-        showLoad(false);
+      .withSuccessHandler(function(itens) {
+        showLoad(false); 
         document.getElementById('corpo-novo-pedido').innerHTML = '';
-        itens.forEach(i => adicionarLinhaVazia(i[1], i[3], i[2]));
-        mostrarToast("Pedido carregado para edição!", "success");
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao carregar pedido: " + err, "error");
+        (itens || []).forEach(function(i){ adicionarLinhaVazia(i[1], i[3], i[2]); });
+        mostrarToast('Pedido carregado', 'success');
       })
       .getDetalhesPedido(id, sessionToken);
   }
 
   function calcTabela() {
     let total = 0;
-    document.querySelectorAll('.linha-editavel').forEach(tr => {
+    document.querySelectorAll('.linha-editavel').forEach(function(tr) {
       const q = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
       const p = parseFloat(tr.querySelector('.fn-preco').value) || 0;
       const sub = q * p;
-      tr.querySelector('.fn-sub').innerText = `R$ ${sub.toFixed(2)}`;
+      tr.querySelector('.fn-sub').innerText = 'R$ ' + sub.toFixed(2);
       total += sub;
     });
-    document.getElementById('total-novo-pedido').innerText = `Total: R$ ${total.toFixed(2)}`;
+    document.getElementById('total-novo-pedido').innerText = 'Total: R$ ' + total.toFixed(2);
     return total;
   }
+  
 
   // ========== SALVAR E WHATSAPP ==========
-  let pedidoParaSalvar = null;
-  
   function abrirConfirmacao() {
     const total = calcTabela();
-    if(total <= 0) return mostrarToast("O pedido está vazio ou zerado.", "error");
+    if(total <= 0) return mostrarToast('Pedido vazio', 'error');
     
     const itens = [];
-    document.querySelectorAll('.linha-editavel').forEach(tr => {
+    document.querySelectorAll('.linha-editavel').forEach(function(tr) {
       const nome = tr.querySelector('.fn-nome').value.trim();
       const qtd = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
       const preco = parseFloat(tr.querySelector('.fn-preco').value) || 0;
-      if(nome && qtd > 0) itens.push({ nome, qtd, preco, validade: '', bonificado: 'Não' });
+      if(nome && qtd > 0) itens.push({ nome: nome, qtd: qtd, preco: preco, validade: '', bonificado: 'Não' });
     });
 
     const sel = document.getElementById('select-fornecedor');
-    pedidoParaSalvar = {
-      idFornecedor: sel.value,
-      nomeFornecedor: sel.options[sel.selectedIndex].text,
-      financeiro: document.getElementById('ped-financeiro').value,
-      prazo: document.getElementById('ped-prazo').value || "0",
-      obs: document.getElementById('ped-obs').value,
-      itens: itens,
-      totalCalc: total
+    
+    pedidoParaSalvar = { 
+      idFornecedor: sel.value, 
+      nomeFornecedor: sel.options[sel.selectedIndex].text, 
+      financeiro: document.getElementById('ped-financeiro').value, 
+      prazo: document.getElementById('ped-prazo').value || '0', 
+      obs: document.getElementById('ped-obs').value, 
+      itens: itens, 
+      totalCalc: total 
     };
 
-    let html = `<ul class="list-group mb-3">`;
-    itens.forEach(i => html += `<li class="list-group-item d-flex justify-content-between"><span>${i.nome} (${i.qtd}x)</span><span>R$ ${(i.qtd*i.preco).toFixed(2)}</span></li>`);
-    html += `</ul><h4 class="text-end text-danger fw-bold">Total: R$ ${total.toFixed(2)}</h4>`;
+    let html = '<ul class="list-group mb-3">';
+    itens.forEach(function(i) { 
+      html += '<li class="list-group-item d-flex justify-content-between"><span>' + i.nome + ' (' + i.qtd + 'x)</span><span>R$ ' + (i.qtd*i.preco).toFixed(2) + '</span></li>'; 
+    });
+    html += '</ul><h4 class="text-end text-danger fw-bold">Total: R$ ' + total.toFixed(2) + '</h4>';
     
     document.getElementById('resumo-html-confirmacao').innerHTML = html;
     document.getElementById('modalConfirmacao').classList.remove('hidden');
   }
 
-  let pedidoRecemSalvo = null;
-
   function salvarPedidoFinal() {
     showLoad(true);
     google.script.run
-      .withSuccessHandler(idPedido => {
-        showLoad(false);
+      .withSuccessHandler(function(idPedido) {
+        showLoad(false); 
         fecharModal('modalConfirmacao');
         
-        // CORREÇÃO CRÍTICA AQUI: Removido o Operador Spread ("...") que causava o Erro de Sintaxe
-        pedidoRecemSalvo = Object.assign({ id: idPedido }, pedidoParaSalvar);
-        
-        document.getElementById('modalSucessoPedido').classList.remove('hidden');
-        
-        document.getElementById('btn-whats-sucesso').onclick = function() {
-          enviarWhatsManual(pedidoRecemSalvo);
+        pedidoRecemSalvo = { 
+          id: idPedido, 
+          nomeFornecedor: pedidoParaSalvar.nomeFornecedor, 
+          itens: pedidoParaSalvar.itens, 
+          totalCalc: pedidoParaSalvar.totalCalc 
         };
         
-        limparFormularioPedido();
+        document.getElementById('modalSucessoPedido').classList.remove('hidden');
+        document.getElementById('btn-whats-sucesso').onclick = function() { enviarWhatsManual(pedidoRecemSalvo); };
+        
+        limparFormularioPedido(); 
         atualizarTabelaStatus();
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao salvar pedido: " + err, "error");
+      .withFailureHandler(function(err) {
+        showLoad(false); mostrarToast('Erro: ' + err, 'error');
       })
       .salvarPedido(pedidoParaSalvar, sessionToken);
   }
 
   function limparFormularioPedido() {
     document.getElementById('corpo-novo-pedido').innerHTML = '';
-    document.getElementById('ped-prazo').value = '';
+    document.getElementById('ped-prazo').value = ''; 
     document.getElementById('ped-obs').value = '';
-    document.getElementById('select-fornecedor').value = '';
+    document.getElementById('select-fornecedor').value = ''; 
     document.getElementById('select-repetir').innerHTML = '';
-    document.getElementById('area-repetir').style.display = 'none';
+    document.getElementById('area-repetir').style.display = 'none'; 
     document.getElementById('area-tabela-pedido').classList.add('hidden');
     document.getElementById('txt-data-prazo').innerText = '';
   }
 
   function enviarWhatsManual(p) {
-    let msg = "*🛒 NOVO PEDIDO - " + p.id + "*\n\n";
-    p.itens.forEach(i => {
-      msg += "▪️ " + i.nome + " - " + i.qtd + "x (R$ " + i.preco.toFixed(2) + ")\n";
+    let msg = '*🛒 NOVO PEDIDO - ' + p.id + '*\n\n';
+    p.itens.forEach(function(i) { 
+      msg += '▪️ ' + i.nome + ' - ' + i.qtd + 'x (R$ ' + i.preco.toFixed(2) + ')\n'; 
     });
-    msg += "\n*💰 Total: R$ " + p.totalCalc.toFixed(2) + "*";
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), '_blank');
+    msg += '\n*💰 Total: R$ ' + (p.totalCalc || 0).toFixed(2) + '*';
+    window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(msg), '_blank');
     fecharSucessoIrParaGestor();
   }
 
-  function fecharSucessoIrParaGestor() {
-    fecharModal('modalSucessoPedido');
-    mostrarModulo('status');
+  function fecharSucessoIrParaGestor() { 
+    fecharModal('modalSucessoPedido'); 
+    mostrarModulo('status'); 
   }
 
   // ========== GESTOR E VISUALIZADOR ==========
   function atualizarTabelaStatus() {
     showLoad(true);
     google.script.run
-      .withSuccessHandler(pedidos => {
-        showLoad(false);
+      .withSuccessHandler(function(pedidos) { 
+        showLoad(false); 
         pedidosEmCache = pedidos; 
-        filtrarGestor();
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao carregar pedidos: " + err, "error");
+        filtrarGestor(); 
       })
       .getPedidosStatus(sessionToken);
   }
 
   function filtrarGestor() {
     const termo = document.getElementById('filtro-gestor').value.toLowerCase();
-    const filtrados = pedidosEmCache.filter(p => p[1].toLowerCase().includes(termo));
-    const tbody = document.getElementById('corpo-gestor');
-    if(filtrados.length === 0) { tbody.innerHTML = "<tr><td colspan='5' class='text-center py-4 text-muted'>Nenhum pedido.</td></tr>"; return; }
+    const filtrados = pedidosEmCache.filter(function(p){ 
+      return (p[1] || '').toString().toLowerCase().includes(termo); 
+    });
     
-    tbody.innerHTML = filtrados.slice().reverse().map(p => {
-      const cor = p[3]==='Entregue'?'success':p[3]==='Pendente'?'warning text-dark':p[3]==='Devolvido'?'danger':'info text-dark';
-      return `
-        <tr class="align-middle cursor-pointer" onclick="abrirVisualizador('${p[0]}')">
-          <td><small class="text-muted">${p[0].split('-')[1]}</small></td>
-          <td class="fw-bold">${p[1]}</td>
-          <td>${new Date(p[2]).toLocaleDateString()}</td>
-          <td><span class="badge bg-${cor}">${p[3]}</span></td>
-          <td><button class="btn btn-sm btn-light border"><i class="fas fa-chevron-right text-primary"></i></button></td>
-        </tr>
-      `;
-    }).join('');
+    let html = '';
+    if(filtrados.length === 0) { 
+      html = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum pedido.</td></tr>'; 
+    } else {
+      filtrados.slice().reverse().forEach(function(p) {
+        let cor = p[3] === 'Entregue' ? 'success' : p[3] === 'Pendente' ? 'warning text-dark' : p[3] === 'Devolvido' ? 'danger' : 'info text-dark';
+        let idLimpo = (p[0]||'').toString().split('-')[1] || p[0];
+        let dData = p[2] ? new Date(p[2]).toLocaleDateString() : '';
+        
+        html += '<tr class="align-middle cursor-pointer" onclick="abrirVisualizador(' + "'" + p[0] + "'" + ')">';
+        html += '<td><small class="text-muted">' + idLimpo + '</small></td>';
+        html += '<td class="fw-bold">' + (p[1] || 'Sem Nome') + '</td>';
+        html += '<td>' + dData + '</td>';
+        html += '<td><span class="badge bg-' + cor + '">' + (p[3] || '') + '</span></td>';
+        html += '<td><button class="btn btn-sm btn-light border"><i class="fas fa-chevron-right text-primary"></i></button></td></tr>';
+      });
+    }
+    document.getElementById('corpo-gestor').innerHTML = html;
   }
 
   function abrirVisualizador(idPedido) {
-    const p = pedidosEmCache.find(x => x[0] === idPedido);
+    const p = pedidosEmCache.find(function(x){ return x[0] === idPedido; });
     if(!p) return;
     pedidoSelecionadoVisualizador = p;
     
-    document.getElementById('vis-id').innerText = "📦 " + p[0];
-    document.getElementById('vis-forn').innerText = p[1];
-    const cor = p[3]==='Entregue'?'success':p[3]==='Pendente'?'warning text-dark':p[3]==='Devolvido'?'danger':'info text-dark';
-    document.getElementById('vis-status').className = `badge bg-${cor} fs-6`;
-    document.getElementById('vis-status').innerText = p[3];
-    document.getElementById('vis-info').innerText = `${p[4] || 0} Dias | ${p[5]}`;
+    document.getElementById('vis-id').innerText = '📦 ' + p[0];
+    document.getElementById('vis-forn').innerText = p[1] || '';
+    
+    let cor = p[3] === 'Entregue' ? 'success' : p[3] === 'Pendente' ? 'warning text-dark' : p[3] === 'Devolvido' ? 'danger' : 'info text-dark';
+    document.getElementById('vis-status').className = 'badge bg-' + cor + ' fs-6';
+    document.getElementById('vis-status').innerText = p[3] || '';
+    document.getElementById('vis-info').innerText = (p[4] || 0) + ' Dias | ' + (p[5] || '');
 
     showLoad(true);
     google.script.run
-      .withSuccessHandler(itens => {
-        showLoad(false);
-        let total = 0;
-        document.getElementById('vis-itens').innerHTML = itens.map(i => {
-          let sub = parseFloat(i[2]) * parseFloat(i[3]);
-          if(i[4] === 'Sim') sub = 0;
+      .withSuccessHandler(function(itens) {
+        showLoad(false); 
+        let total = 0; 
+        let html = '';
+        
+        itens.forEach(function(i) {
+          let sub = (parseFloat(i[2]) || 0) * (parseFloat(i[3]) || 0);
+          if(i[4] === 'Sim') sub = 0; 
           total += sub;
-          return `<tr><td>${i[1]}</td><td class="text-center">${i[3]}</td><td class="text-end text-muted">R$ ${parseFloat(i[2]).toFixed(2)}</td><td class="text-end fw-bold">R$ ${sub.toFixed(2)}</td></tr>`;
-        }).join('');
-        document.getElementById('vis-total').innerText = `Total Geral: R$ ${total.toFixed(2)}`;
+          
+          html += '<tr><td>' + (i[1]||'') + '</td>';
+          html += '<td class="text-center">' + (i[3]||0) + '</td>';
+          html += '<td class="text-end text-muted">R$ ' + (parseFloat(i[2])||0).toFixed(2) + '</td>';
+          html += '<td class="text-end fw-bold">R$ ' + sub.toFixed(2) + '</td></tr>';
+        });
+        
+        document.getElementById('vis-itens').innerHTML = html;
+        document.getElementById('vis-total').innerText = 'Total Geral: R$ ' + total.toFixed(2);
         document.getElementById('modalVisualizadorPedido').classList.remove('hidden');
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao carregar detalhes: " + err, "error");
       })
       .getDetalhesPedido(idPedido, sessionToken);
   }
   
-  function abrirModalConfirmacaoEntrega() {
-    document.getElementById('obs-entrega').value = '';
-    document.getElementById('modalConfirmacaoEntrega').classList.remove('hidden');
+  function abrirModalConfirmacaoEntrega() { 
+    document.getElementById('obs-entrega').value = ''; 
+    document.getElementById('modalConfirmacaoEntrega').classList.remove('hidden'); 
   }
   
   function salvarEntregaFinal() {
-    const id = pedidoSelecionadoVisualizador[0];
+    const id = pedidoSelecionadoVisualizador[0]; 
     const obs = document.getElementById('obs-entrega').value;
     showLoad(true);
     google.script.run
-      .withSuccessHandler(() => {
-        mostrarToast("Status Alterado para Entregue!", "success");
-        fecharModal('modalConfirmacaoEntrega');
-        fecharModal('modalVisualizadorPedido');
+      .withSuccessHandler(function() {
+        mostrarToast('Entregue!', 'success'); 
+        fecharModal('modalConfirmacaoEntrega'); 
+        fecharModal('modalVisualizadorPedido'); 
         atualizarTabelaStatus();
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao alterar status: " + err, "error");
       })
       .alterarStatusPedido(id, 'Entregue', sessionToken, obs);
   }
 
   function excluirDoVisualizador() {
-    const id = pedidoSelecionadoVisualizador[0];
-    if(!confirm("Atenção! Esta ação apagará o pedido. Continuar?")) return;
+    if(!confirm('Apagar pedido?')) return; 
     showLoad(true);
     google.script.run
-      .withSuccessHandler(() => {
-        mostrarToast("Pedido apagado.", "success");
-        fecharModal('modalVisualizadorPedido');
+      .withSuccessHandler(function() {
+        mostrarToast('Apagado.', 'success'); 
+        fecharModal('modalVisualizadorPedido'); 
         atualizarTabelaStatus();
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao excluir: " + err, "error");
-      })
-      .excluirPedido(id, sessionToken);
+      .excluirPedido(pedidoSelecionadoVisualizador[0], sessionToken);
   }
 
   function gerarPDFVisualizador() {
-    const id = pedidoSelecionadoVisualizador[0];
     showLoad(true);
     google.script.run
-      .withSuccessHandler(url => {
-        showLoad(false);
-        window.open(url, '_blank');
+      .withSuccessHandler(function(url) { 
+        showLoad(false); 
+        window.open(url, '_blank'); 
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao gerar PDF: " + err, "error");
-      })
-      .gerarPDFPedido(id, sessionToken);
+      .gerarPDFPedido(pedidoSelecionadoVisualizador[0], sessionToken);
   }
 
   function enviarWhatsVisualizador() {
-    const p = pedidoSelecionadoVisualizador;
     showLoad(true);
     google.script.run
-      .withSuccessHandler(itens => {
+      .withSuccessHandler(function(itens) {
         showLoad(false);
-        let msg = "*🛒 PEDIDO: " + p[0] + "*\n*Fornecedor:* " + p[1] + "\n\n";
+        let msg = '*🛒 PEDIDO: ' + pedidoSelecionadoVisualizador[0] + '*\n*Fornecedor:* ' + (pedidoSelecionadoVisualizador[1]||'') + '\n\n';
         let t = 0;
-        itens.forEach(i => { let s = parseFloat(i[2])*parseFloat(i[3]); t+=s; msg += "▪️ " + i[1] + " - " + i[3] + "x (R$ " + parseFloat(i[2]).toFixed(2) + ")\n"; });
-        msg += "\n*💰 Total:* R$ " + t.toFixed(2);
-        window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), '_blank');
+        itens.forEach(function(i) { 
+          let s = (parseFloat(i[2])||0) * (parseFloat(i[3])||0); 
+          t += s; 
+          msg += '▪️ ' + (i[1]||'') + ' - ' + (i[3]||0) + 'x (R$ ' + (parseFloat(i[2])||0).toFixed(2) + ')\n'; 
+        });
+        msg += '\n*💰 Total:* R$ ' + t.toFixed(2);
+        window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(msg), '_blank');
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao enviar WhatsApp: " + err, "error");
-      })
-      .getDetalhesPedido(p[0], sessionToken);
+      .getDetalhesPedido(pedidoSelecionadoVisualizador[0], sessionToken);
   }
 
-  // ========== MODAL FALTANTES ==========
+  // ========== FALTANTES ==========
   function iniciarRecebimentoParcialVisualizador() {
-    const id = pedidoSelecionadoVisualizador[0];
     showLoad(true);
     google.script.run
-      .withSuccessHandler(itens => {
-        showLoad(false);
-        const tbody = document.getElementById('lista-itens-faltantes');
-        tbody.innerHTML = itens.map(i => `
-          <tr class="item-falha-row border-bottom">
-            <td class="fw-bold item-falha-nome py-3">${i[1]}</td>
-            <td class="text-center py-3 badge bg-light text-dark my-2 border">${i[3]}</td>
-            <td class="py-2"><input type="number" class="form-control item-falha-qtd text-center" max="${i[3]}" min="0" placeholder="0"></td>
-          </tr>
-        `).join('');
-        fecharModal('modalVisualizadorPedido');
+      .withSuccessHandler(function(itens) {
+        showLoad(false); 
+        let html = '';
+        itens.forEach(function(i) {
+          html += '<tr class="item-falha-row border-bottom">';
+          html += '<td class="fw-bold item-falha-nome py-3">' + (i[1]||'') + '</td>';
+          html += '<td class="text-center py-3 badge bg-light text-dark my-2 border">' + (i[3]||0) + '</td>';
+          html += '<td class="py-2"><input type="number" class="form-control item-falha-qtd text-center" max="' + (i[3]||0) + '" min="0" placeholder="0"></td></tr>';
+        });
+        document.getElementById('lista-itens-faltantes').innerHTML = html;
+        fecharModal('modalVisualizadorPedido'); 
         document.getElementById('modalFaltantes').classList.remove('hidden');
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao carregar itens: " + err, "error");
-      })
-      .getDetalhesPedido(id, sessionToken);
+      .getDetalhesPedido(pedidoSelecionadoVisualizador[0], sessionToken);
   }
 
   function salvarItensFaltantes() {
-    const id = pedidoSelecionadoVisualizador[0];
+    const id = pedidoSelecionadoVisualizador[0]; 
     const forn = pedidoSelecionadoVisualizador[7] || pedidoSelecionadoVisualizador[1];
     const faltantes = [];
-    document.querySelectorAll('.item-falha-row').forEach(row => {
+    
+    document.querySelectorAll('.item-falha-row').forEach(function(row) {
       const nome = row.querySelector('.item-falha-nome').innerText;
       const qtdFaltou = parseFloat(row.querySelector('.item-falha-qtd').value) || 0;
       if (qtdFaltou > 0) faltantes.push({ nome: nome, qtdFaltante: qtdFaltou });
     });
-
-    if (faltantes.length === 0) {
-      if(!confirm("Nenhuma falha reportada. Marcar como Parcial mesmo assim?")) return;
-    }
-
+    
+    if (faltantes.length === 0 && !confirm('Nenhuma falha. Marcar Parcial?')) return;
+    
     showLoad(true);
     google.script.run
-      .withSuccessHandler(() => {
+      .withSuccessHandler(function() {
         google.script.run
-          .withSuccessHandler(() => {
-            showLoad(false);
-            fecharModal('modalFaltantes');
-            mostrarToast("Faltas registradas!", "success");
+          .withSuccessHandler(function() {
+            showLoad(false); 
+            fecharModal('modalFaltantes'); 
+            mostrarToast('Falhas registradas!', 'success'); 
             atualizarTabelaStatus();
           })
-          .withFailureHandler(err => {
-            showLoad(false);
-            mostrarToast("Erro ao alterar status: " + err, "error");
-          })
           .alterarStatusPedido(id, 'Parcialmente Entregue', sessionToken);
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao registrar faltas: " + err, "error");
       })
       .registrarItensFaltantes(id, forn, faltantes, sessionToken);
   }
 
-  // ========== MÓDULO TROCAS E DEVOLUÇÕES ==========
+  // ========== TROCAS ==========
   function carregarFornecedoresTroca() {
     google.script.run
-      .withSuccessHandler(forns => {
-        const sel = document.getElementById('troca-fornecedor');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">Selecione o Fornecedor</option>';
-        forns.forEach(f => sel.add(new Option(f.nome, f.id)));
-      })
-      .withFailureHandler(err => {
-        mostrarToast("Erro ao carregar fornecedores: " + err, "error");
+      .withSuccessHandler(function(forns) {
+        let html = '<option value="">Selecione o Fornecedor</option>';
+        forns.forEach(function(f) { 
+          html += '<option value="' + f.id + '">' + f.nome + '</option>'; 
+        });
+        document.getElementById('troca-fornecedor').innerHTML = html;
       })
       .getFornecedores(sessionToken);
   }
 
   function carregarProdutosParaTroca() {
-    const fornecedorId = document.getElementById('troca-fornecedor').value;
-    const selectProduto = document.getElementById('troca-produto');
-    selectProduto.innerHTML = '<option value="">Selecione o produto</option>';
-    if (!fornecedorId) return;
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('troca-produto').innerHTML = '<option value="">Selecione o produto</option>'; 
+      return; 
+    }
     google.script.run
-      .withSuccessHandler(produtos => {
-        const nomes = new Set();
-        produtos.forEach(p => { 
-          if (p.nome && !nomes.has(p.nome)) { nomes.add(p.nome); selectProduto.add(new Option(p.nome, p.nome)); }
+      .withSuccessHandler(function(produtos) {
+        let html = '<option value="">Selecione o produto</option>'; 
+        const nomes = {};
+        produtos.forEach(function(p) { 
+          if (p.nome && !nomes[p.nome]) { 
+            nomes[p.nome] = true; 
+            html += '<option value="' + p.nome + '">' + p.nome + '</option>'; 
+          } 
         });
+        document.getElementById('troca-produto').innerHTML = html;
       })
-      .withFailureHandler(err => {
-        mostrarToast("Erro ao carregar produtos: " + err, "error");
-      })
-      .getProdutosPorFornecedorSelect(fornecedorId, sessionToken);
+      .getProdutosPorFornecedorSelect(fornId, sessionToken);
   }
 
   function carregarPedidosParaTroca() {
-    const fornecedorId = document.getElementById('troca-fornecedor').value;
-    const selPedido = document.getElementById('troca-pedido');
-    selPedido.innerHTML = '<option value="">Pedido relacionado (opcional)</option>';
-    if (!fornecedorId) return;
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('troca-pedido').innerHTML = '<option value="">Opcional...</option>'; 
+      return; 
+    }
     google.script.run
-      .withSuccessHandler(pedidos => {
-        pedidos.forEach(p => { if (p[7] === fornecedorId) selPedido.add(new Option(p[0] + " - " + p[1], p[0])); });
-      })
-      .withFailureHandler(err => {
-        mostrarToast("Erro ao carregar pedidos: " + err, "error");
+      .withSuccessHandler(function(pedidos) {
+        let html = '<option value="">Opcional...</option>';
+        pedidos.forEach(function(p) { 
+          if (p[7] === fornId) {
+            html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>'; 
+          }
+        });
+        document.getElementById('troca-pedido').innerHTML = html;
       })
       .getPedidosStatus(sessionToken);
   }
 
   function salvarTrocaFront() {
-    const fornecedorId = document.getElementById('troca-fornecedor').value;
-    if (!fornecedorId) return mostrarToast("Selecione um fornecedor", "error");
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) return mostrarToast('Selecione fornecedor', 'error');
     
-    const troca = {
-      pedidoId: document.getElementById('troca-pedido').value,
-      fornecedorId: fornecedorId,
-      produto: document.getElementById('troca-produto').value,
-      quantidade: parseFloat(document.getElementById('troca-qtd').value) || 1,
-      valor: parseFloat(document.getElementById('troca-valor').value) || 0,
-      tipo: document.getElementById('troca-tipo').value,
-      observacao: document.getElementById('troca-obs').value
+    const troca = { 
+      pedidoId: document.getElementById('troca-pedido').value, 
+      fornecedorId: fornId, 
+      produto: document.getElementById('troca-produto').value, 
+      quantidade: parseFloat(document.getElementById('troca-qtd').value) || 1, 
+      valor: parseFloat(document.getElementById('troca-valor').value) || 0, 
+      tipo: document.getElementById('troca-tipo').value, 
+      observacao: document.getElementById('troca-obs').value 
     };
     
-    if (!troca.produto) return mostrarToast("Selecione um produto", "error");
+    if (!troca.produto) return mostrarToast('Selecione produto', 'error');
     
     showLoad(true);
     google.script.run
-      .withSuccessHandler(() => {
-        showLoad(false);
-        mostrarToast("Troca Registrada com Sucesso!", "success");
-        document.getElementById('troca-produto').value = '';
-        document.getElementById('troca-qtd').value = '';
-        document.getElementById('troca-valor').value = '';
+      .withSuccessHandler(function() {
+        showLoad(false); 
+        mostrarToast('Registrada!', 'success');
+        document.getElementById('troca-produto').value = ''; 
+        document.getElementById('troca-qtd').value = ''; 
+        document.getElementById('troca-valor').value = ''; 
         document.getElementById('troca-obs').value = '';
         carregarTrocas();
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao salvar troca: " + err, "error");
       })
       .salvarTroca(troca, sessionToken);
   }
 
   function carregarTrocas() {
-    const fornecedorId = document.getElementById('troca-fornecedor').value;
-    if (!fornecedorId) { document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Selecione um fornecedor</td></tr>'; return; }
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Selecione fornecedor</td></tr>'; 
+      return; 
+    }
     
     showLoad(true);
     google.script.run
-      .withSuccessHandler(trocas => {
-        showLoad(false);
-        const tbody = document.getElementById('corpo-trocas');
-        if(trocas.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhuma troca ou devolução.</td></tr>'; return; }
-        
-        tbody.innerHTML = trocas.map(t => `
-          <tr class="align-middle">
-            <td>${new Date(t.data).toLocaleDateString()}</td>
-            <td><small class="text-muted">${t.pedidoId ? t.pedidoId.split('-')[1] || t.pedidoId : '-'}</small></td>
-            <td class="fw-bold">${t.produto}</td>
-            <td class="text-center">${t.quantidade}</td>
-            <td class="text-muted">R$ ${parseFloat(t.valor).toFixed(2)}</td>
-            <td>${t.tipo === 'Troca' ? '🔄 Troca' : '⬅️ Devolução'}</td>
-            <td><span class="badge bg-${t.status === 'Resolvido' ? 'success' : 'warning text-dark'}">${t.status}</span></td>
-            <td class="text-end">${t.status !== 'Resolvido' ? `<button class="btn btn-sm btn-success" onclick="resolverTrocaFront('${t.id}')">Resolver</button>` : '<i class="fas fa-check text-success"></i>'}</td>
-          </tr>
-        `).join('');
+      .withSuccessHandler(function(trocas) {
+        showLoad(false); 
+        let html = '';
+        if(trocas.length === 0) { 
+          html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma troca.</td></tr>'; 
+        } else {
+          trocas.forEach(function(t) {
+            let dataStr = t.data ? new Date(t.data).toLocaleDateString() : '';
+            let idStr = t.pedidoId ? (t.pedidoId||'').toString().split('-')[1] || t.pedidoId : '-';
+            let tipoStr = t.tipo === 'Troca' ? '🔄 Troca' : '⬅️ Devolução';
+            let statusClass = t.status === 'Resolvido' ? 'success' : 'warning text-dark';
+            
+            let btnAcao = '<i class="fas fa-check text-success"></i>';
+            if (t.status !== 'Resolvido') {
+              btnAcao = '<button class="btn btn-sm btn-success" onclick="resolverTrocaFront(' + "'" + t.id + "'" + ')">Resolver</button>';
+            }
+            
+            html += '<tr class="align-middle">';
+            html += '<td>' + dataStr + '</td>';
+            html += '<td><small class="text-muted">' + idStr + '</small></td>';
+            html += '<td class="fw-bold">' + (t.produto||'') + '</td>';
+            html += '<td class="text-center">' + (t.quantidade||0) + '</td>';
+            html += '<td class="text-muted">R$ ' + (parseFloat(t.valor)||0).toFixed(2) + '</td>';
+            html += '<td>' + tipoStr + '</td>';
+            html += '<td><span class="badge bg-' + statusClass + '">' + (t.status||'') + '</span></td>';
+            html += '<td class="text-end">' + btnAcao + '</td></tr>';
+          });
+        }
+        document.getElementById('corpo-trocas').innerHTML = html;
       })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao carregar trocas: " + err, "error");
-      })
-      .getTrocasPorFornecedor(fornecedorId, sessionToken);
+      .getTrocasPorFornecedor(fornId, sessionToken);
   }
 
   function resolverTrocaFront(id) {
-    if(!confirm("Marcar como resolvida?")) return;
+    if(!confirm('Marcar resolvida?')) return; 
     showLoad(true);
     google.script.run
-      .withSuccessHandler(() => {
-        showLoad(false);
-        mostrarToast("Resolvido!", "success");
-        carregarTrocas();
-      })
-      .withFailureHandler(err => {
-        showLoad(false);
-        mostrarToast("Erro ao resolver: " + err, "error");
+      .withSuccessHandler(function() { 
+        showLoad(false); 
+        mostrarToast('Resolvido!', 'success'); 
+        carregarTrocas(); 
       })
       .resolverTroca(id, sessionToken);
   }
