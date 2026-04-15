@@ -3,33 +3,41 @@ const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg";
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Sistema de Mercado')
+    .setTitle('Gestão de Pedidos')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// ===================== AUTENTICAÇÃO =====================
 function validarLogin(usuario, senha) {
   try {
     const ss = SpreadsheetApp.openById(ID_PLANILHA);
     const aba = ss.getSheetByName("Usuarios");
     if (!aba) return { sucesso: false, mensagem: "Aba Usuarios não encontrada." };
+    
     const lastRow = aba.getLastRow();
-    if (lastRow <= 1) return { sucesso: false, mensagem: "Nenhum usuário cadastrado." };
+    if (lastRow <= 1) return { sucesso: false, mensagem: "Nenhum utilizador cadastrado." };
+    
     const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
+    
+    // Limpeza de segurança
+    const u = usuario.trim();
+    const s = senha.trim();
+
     for (let i = 0; i < dados.length; i++) {
-      if (dados[i][2].toString() === usuario && dados[i][3].toString() === senha) {
+      // Limpa os dados vindos da folha de cálculo na hora de comparar
+      if (dados[i][2].toString().trim() === u && dados[i][3].toString().trim() === s) {
         const token = Utilities.getUuid();
         const usr = { nome: dados[i][1], perfil: dados[i][4], status: dados[i][5] };
         CacheService.getScriptCache().put(token, JSON.stringify(usr), 14400);
         return { sucesso: true, token: token, usuario: usr };
       }
     }
-    return { sucesso: false, mensagem: "Usuário ou senha incorretos." };
+    return { sucesso: false, mensagem: "Utilizador ou palavra-passe incorretos." };
   } catch (e) {
     return { sucesso: false, mensagem: "Erro interno: " + e.message };
   }
 }
+
 
 function verificarSessao(token) {
   return token && CacheService.getScriptCache().get(token) !== null;
@@ -60,7 +68,7 @@ function getFornecedores(token) {
   if (!aba) return [];
   const lastRow = aba.getLastRow();
   if (lastRow <= 1) return [];
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
+  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues().filter(r => r[0] !== "");
   return dados.map(r => ({ id: r[0], nome: r[1], contato: r[2], diaEntrega: r[3] }));
 }
 
@@ -133,7 +141,7 @@ function getPedidosStatus(token) {
   if (!aba) return [];
   const lastRow = aba.getLastRow();
   if (lastRow <= 1) return [];
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
+  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues().filter(r => r[0] !== "");
   return dados.map(r => r.map(c => c instanceof Date ? c.toISOString() : c));
 }
 
@@ -367,4 +375,42 @@ function resolverTroca(idTroca, token) {
     }
   }
   return false;
+}
+
+// ===================== CATÁLOGO E REPOSIÇÃO AUTOMÁTICA =====================
+
+function getCatalogoFornecedor(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const abaMestre = ss.getSheetByName("Pedidos_Mestre");
+  const abaItens = ss.getSheetByName("Pedidos_Itens");
+  if (!abaMestre || !abaItens) return [];
+
+  const pedidos = abaMestre.getDataRange().getValues().slice(1).filter(p => p[7] === fornecedorId);
+  const idsPedidosForn = pedidos.map(p => p[0]);
+  if (idsPedidosForn.length === 0) return [];
+
+  const itens = abaItens.getDataRange().getValues().slice(1);
+  const catalogo = {};
+
+  // Guarda o último preço praticado para cada produto
+  itens.forEach(i => {
+    if (idsPedidosForn.includes(i[0])) {
+      const nome = (i[1] || "").toString().trim();
+      const preco = parseFloat(i[2]) || 0;
+      if (nome) catalogo[nome.toLowerCase()] = { nome: nome, preco: preco };
+    }
+  });
+  return Object.values(catalogo);
+}
+
+function getFaltasPendentesPorFornecedor(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada");
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Falhas");
+  if (!aba) return [];
+  const dados = aba.getDataRange().getValues().slice(1);
+  
+  // Colunas: 0:Data, 1:FornId, 2:Nome, 3:Qtd, 4:PedidoId, 5:Status
+  return dados.filter(r => r[1] === fornecedorId && r[5] === "Pendente")
+              .map(r => ({ nome: r[2], qtd: r[3] }));
 }
