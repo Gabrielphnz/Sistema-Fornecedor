@@ -119,12 +119,16 @@ function getPendenciasFornecedor(fornecedorId, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const ss = SpreadsheetApp.openById(ID_PLANILHA);
   const pendencias = [];
+  const fornecedorAlvo = String(fornecedorId || "").trim();
 
   const abaTrocas = ss.getSheetByName("Trocas_Devolucoes");
   if (abaTrocas) {
     const trocas = abaTrocas.getDataRange().getValues().slice(1);
     trocas.forEach(row => {
-      if (row[2].toString() === fornecedorId.toString() && row[9] !== "Resolvido") {
+      const fornTroca = String(row[2] || "").trim();
+      const statusTroca = String(row[9] || "").trim();
+      const statusDisponivel = statusTroca === "Ativo" || statusTroca === "Pendente" || statusTroca === "";
+      if (fornTroca === fornecedorAlvo && statusDisponivel) {
         pendencias.push({
           tipo: "troca",
           origemId: row[0],
@@ -227,13 +231,26 @@ function getPedidosStatus(token) {
 
 function excluirPedido(idPedido, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const aba = ss.getSheetByName("Pedidos_Mestre");
   if (!aba) throw new Error("Aba não encontrada.");
   const lastRow = aba.getLastRow();
   if (lastRow <= 1) return false;
   const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
   for (let i = dados.length - 1; i >= 0; i--) {
     if (dados[i][0] === idPedido) {
+      reverterPendenciasVinculadasPedido(idPedido, ss);
+
+      const abaItens = ss.getSheetByName("Pedidos_Itens");
+      if (abaItens) {
+        const itensDados = abaItens.getDataRange().getValues();
+        for (let j = itensDados.length - 1; j >= 1; j--) {
+          if (String(itensDados[j][0]) === String(idPedido)) {
+            abaItens.deleteRow(j + 1);
+          }
+        }
+      }
+
       aba.deleteRow(i + 2);
       return true;
     }
@@ -351,6 +368,60 @@ function baixarPendenciasVinculadasPedido(idPedido, ssRef) {
       }
     }
   }
+  return true;
+}
+
+function reverterPendenciasVinculadasPedido(idPedido, ssRef) {
+  const ss = ssRef || SpreadsheetApp.openById(ID_PLANILHA);
+  const abaVinculos = ss.getSheetByName("Pendencias_Pedido");
+  if (!abaVinculos) return true;
+
+  const dadosVinculos = abaVinculos.getDataRange().getValues();
+  if (dadosVinculos.length <= 1) return true;
+
+  const abaTrocas = ss.getSheetByName("Trocas_Devolucoes");
+  const dadosTrocas = abaTrocas ? abaTrocas.getDataRange().getValues() : [];
+
+  const abaFalhas = ss.getSheetByName("Historico_Falhas");
+  const dadosFalhas = abaFalhas ? abaFalhas.getDataRange().getValues() : [];
+
+  const linhasParaRemover = [];
+
+  for (let i = 1; i < dadosVinculos.length; i++) {
+    const pedidoVinculado = String(dadosVinculos[i][1] || "");
+    const tipo = String(dadosVinculos[i][2] || "");
+    const origemId = String(dadosVinculos[i][3] || "");
+    if (pedidoVinculado !== String(idPedido)) continue;
+
+    if (tipo === "troca" && abaTrocas) {
+      for (let j = 1; j < dadosTrocas.length; j++) {
+        if (String(dadosTrocas[j][0]) !== origemId) continue;
+        const statusAtual = String(dadosTrocas[j][9] || "");
+        if (statusAtual.indexOf("Em cobrança") === 0) {
+          abaTrocas.getRange(j + 1, 10).setValue("Ativo");
+        }
+        break;
+      }
+    }
+
+    if (tipo === "falta" && abaFalhas) {
+      for (let j = 1; j < dadosFalhas.length; j++) {
+        const origemFalha = `${dadosFalhas[j][4]}-${dadosFalhas[j][2]}`;
+        if (origemFalha !== origemId) continue;
+        const statusFalha = String(dadosFalhas[j][5] || "");
+        if (statusFalha.indexOf("Em cobrança") === 0) {
+          abaFalhas.getRange(j + 1, 6).setValue("Pendente");
+        }
+      }
+    }
+
+    linhasParaRemover.push(i + 1);
+  }
+
+  for (let r = linhasParaRemover.length - 1; r >= 0; r--) {
+    abaVinculos.deleteRow(linhasParaRemover[r]);
+  }
+
   return true;
 }
 
@@ -553,9 +624,10 @@ function getTrocasPorFornecedor(fornecedorId, token) {
   if (!aba) return [];
 
   const dados = aba.getDataRange().getValues().slice(1);
+  const fornecedorAlvo = String(fornecedorId || "").trim();
 
   return dados
-    .filter(row => row[2].toString() === fornecedorId.toString())
+    .filter(row => String(row[2] || "").trim() === fornecedorAlvo)
     .map(row => ({
       id: row[0],
       pedidoId: row[1],
