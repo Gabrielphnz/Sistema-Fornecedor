@@ -209,8 +209,20 @@ function getPedidosStatus(token) {
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
   if (!aba) return [];
+  const dados = aba.getDataRange().getValues().slice(1);
 
-  return aba.getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  return dados
+    .filter(r => (r[0] || "").toString().trim() !== "")
+    .map(r => ([
+      (r[0] || "").toString().trim(),             // ID Pedido
+      (r[1] || "").toString().trim(),             // Fornecedor Nome
+      r[2] instanceof Date ? r[2].toISOString() : r[2], // Data emissão
+      (r[3] || "Pendente").toString().trim(),     // Status
+      (r[4] || "").toString().trim(),             // Prazo
+      (r[5] || "").toString().trim(),             // Financeiro
+      (r[6] || "").toString().trim(),             // Obs
+      (r[7] || "").toString().trim()              // Fornecedor ID
+    ]));
 }
 
 function excluirPedido(idPedido, token) {
@@ -293,11 +305,53 @@ function alterarStatusPedido(idPedido, novoStatus, token, observacao = "") {
             }
           }
         }
+        baixarPendenciasVinculadasPedido(idPedido, ss);
       }
       return true;
     }
   }
   throw new Error("Pedido não encontrado.");
+}
+
+function baixarPendenciasVinculadasPedido(idPedido, ssRef) {
+  const ss = ssRef || SpreadsheetApp.openById(ID_PLANILHA);
+  const abaVinculos = ss.getSheetByName("Pendencias_Pedido");
+  if (!abaVinculos) return true;
+
+  const dadosVinculos = abaVinculos.getDataRange().getValues();
+  if (dadosVinculos.length <= 1) return true;
+
+  const abaTrocas = ss.getSheetByName("Trocas_Devolucoes");
+  const dadosTrocas = abaTrocas ? abaTrocas.getDataRange().getValues() : [];
+
+  const abaFalhas = ss.getSheetByName("Historico_Falhas");
+  const dadosFalhas = abaFalhas ? abaFalhas.getDataRange().getValues() : [];
+
+  for (let i = 1; i < dadosVinculos.length; i++) {
+    const pedidoVinculado = (dadosVinculos[i][1] || "").toString();
+    const tipo = (dadosVinculos[i][2] || "").toString();
+    const origemId = (dadosVinculos[i][3] || "").toString();
+    if (pedidoVinculado !== String(idPedido)) continue;
+
+    if (tipo === "troca" && abaTrocas) {
+      for (let j = 1; j < dadosTrocas.length; j++) {
+        if (String(dadosTrocas[j][0]) === origemId && String(dadosTrocas[j][9]) !== "Resolvido") {
+          abaTrocas.getRange(j + 1, 10).setValue("Resolvido");
+          break;
+        }
+      }
+    }
+
+    if (tipo === "falta" && abaFalhas) {
+      for (let j = 1; j < dadosFalhas.length; j++) {
+        const origemFalha = `${dadosFalhas[j][4]}-${dadosFalhas[j][2]}`;
+        if (origemFalha === origemId && String(dadosFalhas[j][5]) !== "Resolvido") {
+          abaFalhas.getRange(j + 1, 6).setValue("Resolvido");
+        }
+      }
+    }
+  }
+  return true;
 }
 
 function gerarPDFPedido(idPedido, token) {
