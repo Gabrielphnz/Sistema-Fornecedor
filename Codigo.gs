@@ -84,6 +84,7 @@ function getFornecedores(token) {
 
 function getProdutosPorFornecedor(fornecedorId) {
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
+  if (!aba) return [];
   const dados = aba.getDataRange().getValues().slice(1);
 
   const filtrados = dados.filter(l => l[1] == fornecedorId);
@@ -93,6 +94,7 @@ function getProdutosPorFornecedor(fornecedorId) {
 
 function getUltimoPreco(produto, fornecedorId) {
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
+  if (!aba) return "";
   const dados = aba.getDataRange().getValues().slice(1);
 
   const filtrados = dados
@@ -100,6 +102,50 @@ function getUltimoPreco(produto, fornecedorId) {
     .sort((a,b) => new Date(b[4]) - new Date(a[4]));
 
   return filtrados[0]?.[3] || "";
+}
+
+function getPendenciasFornecedor(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const pendencias = [];
+
+  const abaTrocas = ss.getSheetByName("Trocas_Devolucoes");
+  if (abaTrocas) {
+    const trocas = abaTrocas.getDataRange().getValues().slice(1);
+    trocas.forEach(row => {
+      if (row[2].toString() === fornecedorId.toString() && row[9] !== "Resolvido") {
+        pendencias.push({
+          tipo: "troca",
+          origemId: row[0],
+          pedidoId: row[1],
+          produto: row[3],
+          quantidade: Number(row[4]) || 0,
+          valor: Number(row[5]) || 0,
+          descricao: `Troca pendente: ${row[3]} (${row[4]})`
+        });
+      }
+    });
+  }
+
+  const abaFalhas = ss.getSheetByName("Historico_Falhas");
+  if (abaFalhas) {
+    const falhas = abaFalhas.getDataRange().getValues().slice(1);
+    falhas.forEach(row => {
+      if (row[1].toString() === fornecedorId.toString() && row[5] === "Pendente") {
+        pendencias.push({
+          tipo: "falta",
+          origemId: `${row[4]}-${row[2]}`,
+          pedidoId: row[4],
+          produto: row[2],
+          quantidade: Number(row[3]) || 0,
+          valor: 0,
+          descricao: `Falta pendente: ${row[2]} (${row[3]})`
+        });
+      }
+    });
+  }
+
+  return pendencias;
 }
 
 function getSeta(precoAtual, nome) {
