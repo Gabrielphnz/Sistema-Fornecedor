@@ -280,10 +280,32 @@ function gerarPDFPedido(idPedido, token) {
         <p style="margin-top: 30px; font-size: 12px; color: #666;"><strong>Observações:</strong> ${pedido ? pedido[6] : ''}</p>
       </div>
     `;
-    const troca = getTrocaPorPedido(pedido.id);
+const trocas = getTrocaPorPedido(pedido[0], token);
 
-if (troca) {
-  html += montarBlocoTroca(troca);
+if (trocas.length > 0) {
+  html += `
+    <h3 style="margin-top:30px; color:#4c1130;">🔄 Trocas / Devoluções</h3>
+    <table style="width:100%; border-collapse: collapse;">
+      <tr>
+        <th>Produto</th>
+        <th>Qtd</th>
+        <th>Tipo</th>
+        <th>Valor</th>
+      </tr>
+  `;
+
+  trocas.forEach(t => {
+    html += `
+      <tr>
+        <td>${t.produto}</td>
+        <td>${t.quantidade}</td>
+        <td>${t.tipo}</td>
+        <td>R$ ${parseFloat(t.valor || 0).toFixed(2)}</td>
+      </tr>
+    `;
+  });
+
+  html += `</table>`;
 }
     
     const pdfBlob = HtmlService.createHtmlOutput(html).getAs('application/pdf').setName(`${idPedido}.pdf`);
@@ -297,10 +319,9 @@ if (troca) {
   
 }
 
-
-function getTrocaPorPedido(pedidoId) {
-  const trocas = getTrocas(); // sua leitura da planilha
-  return trocas.find(t => t.pedidoId === pedidoId);
+function getTrocaPorPedido(pedidoId, token) {
+  const trocas = getTrocas(token);
+  return trocas.filter(t => t.pedidoId === pedidoId);
 }
 
 function getUltimosPedidosFornecedor(fornecedorId, token) {
@@ -426,4 +447,26 @@ function getFaltasPendentesPorFornecedor(fornecedorId, token) {
   // Colunas: 0:Data, 1:FornId, 2:Nome, 3:Qtd, 4:PedidoId, 5:Status
   return dados.filter(r => r[1] === fornecedorId && r[5] === "Pendente")
               .map(r => ({ nome: r[2], qtd: r[3] }));
+}
+
+function getTrocas(token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
+  if (!aba) return [];
+  
+  const dados = aba.getDataRange().getValues().slice(1);
+  
+  return dados.map(row => ({
+    id: row[0],
+    pedidoId: row[1],
+    fornecedorId: row[2],
+    produto: row[3],
+    quantidade: row[4],
+    valor: row[5],
+    tipo: row[6],
+    observacao: row[7],
+    data: row[8],
+    status: row[9]
+  }));
 }
