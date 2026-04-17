@@ -73,33 +73,34 @@ function getFornecedores(token) {
 }
 
 // ===================== PRODUTOS E PEDIDOS =====================
-function getProdutosPorFornecedor(idFornecedor, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const abaProdutos = ss.getSheetByName("Produtos");
-  if (!abaProdutos) return [];
-  const lastRow = abaProdutos.getLastRow();
-  if (lastRow <= 1) return [];
-  const dados = abaProdutos.getRange(2, 1, lastRow - 1, abaProdutos.getLastColumn()).getValues();
-  return dados.filter(row => row[1].toString() === idFornecedor.toString())
-              .map(row => row.map(c => (c instanceof Date ? c.toISOString() : c)));
+
+function getProdutosPorFornecedor(fornecedorId) {
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
+  const dados = aba.getDataRange().getValues().slice(1);
+
+  const filtrados = dados.filter(l => l[1] == fornecedorId);
+
+  return [...new Set(filtrados.map(l => l[2]))]; // nomes únicos
 }
 
-function getProdutosPorFornecedorSelect(idFornecedor, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const abaProdutos = ss.getSheetByName("Produtos");
-  if (!abaProdutos) return [];
-  const lastRow = abaProdutos.getLastRow();
-  if (lastRow <= 1) return [];
-  const dados = abaProdutos.getRange(2, 1, lastRow - 1, abaProdutos.getLastColumn()).getValues();
-  return dados.filter(row => row[1].toString() === idFornecedor.toString())
-              .map(row => ({ 
-                id: row[0] || "", 
-                nome: row[2] || "", 
-                preco: row[3] || 0, 
-                estoque: row[4] || 0 
-              }));
+function getUltimoPreco(produto, fornecedorId) {
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
+  const dados = aba.getDataRange().getValues().slice(1);
+
+  const filtrados = dados
+    .filter(l => l[1] == fornecedorId && l[2].toLowerCase() == produto.toLowerCase())
+    .sort((a,b) => new Date(b[4]) - new Date(a[4]));
+
+  return filtrados[0]?.[3] || "";
+}
+
+function getSeta(precoAtual, nome) {
+  const anterior = historico[nome.toLowerCase()];
+  if (!anterior) return '';
+
+  if (precoAtual > anterior) return '<span style="color:#e74c3c;">▲</span>';
+  if (precoAtual < anterior) return '<span style="color:#27ae60;">▼</span>';
+  return '';
 }
 
 function salvarPedido(pedido, token) {
@@ -369,18 +370,23 @@ function getDashboardData(token) {
   return { pedidosPorFornecedor, ranking, totalMes };
 }
 
-function salvarTroca(troca, token) {
+function salvarTroca(dados, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  let aba = ss.getSheetByName("Trocas_Devolucoes");
-  if (!aba) aba = ss.insertSheet("Trocas_Devolucoes");
-  const id = "TROCA-" + Date.now();
+
+  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
+
   aba.appendRow([
-    id, troca.pedidoId || "", troca.fornecedorId, troca.produto,
-    troca.quantidade, troca.valor, troca.tipo, troca.observacao,
-    new Date(), "Pendente"
+    Utilities.getUuid(),
+    dados.pedidoId, // 🔴 ESSENCIAL
+    dados.fornecedorId,
+    dados.produto,
+    dados.quantidade,
+    dados.valor,
+    dados.tipo,
+    dados.observacao,
+    new Date(),
+    "Ativo"
   ]);
-  return id;
 }
 
 function getTrocasPorFornecedor(fornecedorId, token) {
