@@ -692,6 +692,7 @@ function carregarHistorico() {
 function renderizarPendenciasFornecedor() {
   const painel = document.getElementById('painel-pendencias');
   const alvo = document.getElementById('lista-pendencias');
+  
   if (!fornecedorAtual) {
     painel.classList.add('hidden');
     return;
@@ -712,16 +713,6 @@ function renderizarPendenciasFornecedor() {
     html += `<label class="d-flex justify-content-between align-items-center border rounded p-2 gap-2">
       <span><input type="checkbox" class="form-check-input me-2 pendencia-check" data-idx="${idx}" checked> ${descricao}</span>
       <span class="badge bg-light text-dark border text-uppercase">${tipo}</span>
-  painel.classList.remove('hidden');
-  if (!pendenciasFornecedor.length) {
-    alvo.innerHTML = '<span class="text-muted">Sem pendências para este fornecedor.</span>';
-    return;
-  }
-  let html = '<div class="d-flex flex-column gap-2">';
-  pendenciasFornecedor.forEach((p, idx) => {
-    html += `<label class="d-flex justify-content-between align-items-center border rounded p-2">
-      <span><input type="checkbox" class="form-check-input me-2 pendencia-check" data-idx="${idx}" checked> ${p.descricao}</span>
-      <span class="badge bg-light text-dark border">${p.tipo}</span>
     </label>`;
   });
   html += '</div>';
@@ -763,13 +754,12 @@ function adicionarPendenciasAoPedido() {
     const jaExiste = pendenciasSelecionadasPedido.some(x => x.tipo === p.tipo && String(x.origemId) === String(p.origemId));
     if (jaExiste) return;
 
-  selecionadas.forEach(chk => {
-    const p = pendenciasFornecedor[parseInt(chk.dataset.idx, 10)];
-    if (!p) return;
     const nome = p.tipo === 'troca' ? `[COBRANÇA] ${p.produto}` : `[REPOSIÇÃO] ${p.produto}`;
     const qtd = p.quantidade || 1;
     const preco = p.tipo === 'troca' ? (p.valor || 0) : (historicoPrecos[(p.produto || '').toLowerCase()] || 0);
+    
     adicionarLinhaVazia(nome, qtd, preco);
+    
     pendenciasSelecionadasPedido.push({
       tipo: p.tipo,
       origemId: p.origemId,
@@ -783,8 +773,6 @@ function adicionarPendenciasAoPedido() {
   renderizarPendenciasSelecionadas();
   if (!adicionadas) return mostrarToast('As pendências selecionadas já estão no pedido.', 'info');
   mostrarToast(adicionadas + ' pendência(s) adicionada(s) ao pedido.', 'success');
-  });
-  mostrarToast('Pendências adicionadas ao pedido.', 'success');
 }
   
   function verificarInflacao(inputNome) {
