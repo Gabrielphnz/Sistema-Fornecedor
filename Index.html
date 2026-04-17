@@ -193,6 +193,7 @@
           <button class="btn btn-sm btn-outline-primary" onclick="adicionarPendenciasAoPedido()">Adicionar ao pedido</button>
         </div>
         <div id="lista-pendencias" class="small text-muted">Sem pendências.</div>
+        <div id="pendencias-selecionadas" class="small mt-2 text-muted"></div>
       </div>
     </div>
 
@@ -435,6 +436,7 @@
   let pedidoRecemSalvo = null;
   let fornecedorAtual = null;
   let pendenciasFornecedor = [];
+  let pendenciasSelecionadasPedido = [];
 
 function ok(dados = null, mensagem = "") {
   return { sucesso: true, dados, mensagem };
@@ -648,6 +650,8 @@ function carregarHistorico() {
   if (!idForn) {
     document.getElementById('painel-pendencias').classList.add('hidden');
     pendenciasFornecedor = [];
+    pendenciasSelecionadasPedido = [];
+    renderizarPendenciasSelecionadas();
     return;
   }
 
@@ -667,6 +671,8 @@ function carregarHistorico() {
     showLoad(false);
 
     document.getElementById('corpo-novo-pedido').innerHTML = '';
+    pendenciasSelecionadasPedido = [];
+    renderizarPendenciasSelecionadas();
     adicionarLinhaVazia();
 
   }).getCatalogoFornecedor(idForn, sessionToken);
@@ -690,6 +696,22 @@ function renderizarPendenciasFornecedor() {
     painel.classList.add('hidden');
     return;
   }
+
+  painel.classList.remove('hidden');
+  const lista = Array.isArray(pendenciasFornecedor) ? pendenciasFornecedor : [];
+
+  if (!lista.length) {
+    alvo.innerHTML = '<span class="text-muted">Sem pendências para este fornecedor.</span>';
+    return;
+  }
+
+  let html = '<div class="d-flex flex-column gap-2">';
+  lista.forEach((p, idx) => {
+    const descricao = p && p.descricao ? p.descricao : 'Pendência sem descrição';
+    const tipo = p && p.tipo ? p.tipo : 'pendência';
+    html += `<label class="d-flex justify-content-between align-items-center border rounded p-2 gap-2">
+      <span><input type="checkbox" class="form-check-input me-2 pendencia-check" data-idx="${idx}" checked> ${descricao}</span>
+      <span class="badge bg-light text-dark border text-uppercase">${tipo}</span>
   painel.classList.remove('hidden');
   if (!pendenciasFornecedor.length) {
     alvo.innerHTML = '<span class="text-muted">Sem pendências para este fornecedor.</span>';
@@ -706,9 +728,40 @@ function renderizarPendenciasFornecedor() {
   alvo.innerHTML = html;
 }
 
+function renderizarPendenciasSelecionadas() {
+  const alvo = document.getElementById('pendencias-selecionadas');
+  if (!alvo) return;
+  if (!pendenciasSelecionadasPedido.length) {
+    alvo.innerHTML = '<span class="text-muted">Nenhuma pendência adicionada ao pedido.</span>';
+    return;
+  }
+
+  let html = '<div class="d-flex flex-wrap gap-2">';
+  pendenciasSelecionadasPedido.forEach((p, i) => {
+    html += `<span class="badge bg-warning text-dark d-inline-flex align-items-center gap-2">${p.tipo}: ${p.produto || '-'}
+      <button type="button" class="btn-close btn-close-sm" aria-label="Remover" onclick="removerPendenciaSelecionada(${i})"></button>
+    </span>`;
+  });
+  html += '</div>';
+  alvo.innerHTML = html;
+}
+
+function removerPendenciaSelecionada(idx) {
+  pendenciasSelecionadasPedido.splice(idx, 1);
+  renderizarPendenciasSelecionadas();
+}
+
 function adicionarPendenciasAoPedido() {
   const selecionadas = Array.from(document.querySelectorAll('.pendencia-check:checked'));
   if (!selecionadas.length) return mostrarToast('Selecione ao menos uma pendência', 'error');
+
+  let adicionadas = 0;
+  selecionadas.forEach(chk => {
+    const p = pendenciasFornecedor[parseInt(chk.dataset.idx, 10)];
+    if (!p || !p.origemId || !p.tipo) return;
+
+    const jaExiste = pendenciasSelecionadasPedido.some(x => x.tipo === p.tipo && String(x.origemId) === String(p.origemId));
+    if (jaExiste) return;
 
   selecionadas.forEach(chk => {
     const p = pendenciasFornecedor[parseInt(chk.dataset.idx, 10)];
@@ -717,6 +770,19 @@ function adicionarPendenciasAoPedido() {
     const qtd = p.quantidade || 1;
     const preco = p.tipo === 'troca' ? (p.valor || 0) : (historicoPrecos[(p.produto || '').toLowerCase()] || 0);
     adicionarLinhaVazia(nome, qtd, preco);
+    pendenciasSelecionadasPedido.push({
+      tipo: p.tipo,
+      origemId: p.origemId,
+      produto: p.produto || '',
+      quantidade: Number(qtd) || 0,
+      valor: Number(preco) || 0
+    });
+    adicionadas++;
+  });
+
+  renderizarPendenciasSelecionadas();
+  if (!adicionadas) return mostrarToast('As pendências selecionadas já estão no pedido.', 'info');
+  mostrarToast(adicionadas + ' pendência(s) adicionada(s) ao pedido.', 'success');
   });
   mostrarToast('Pendências adicionadas ao pedido.', 'success');
 }
@@ -746,6 +812,7 @@ function adicionarPendenciasAoPedido() {
     const tbody = document.getElementById('corpo-novo-pedido');
     const tr = document.createElement('tr');
     tr.className = 'linha-editavel';
+    const precoAnterior = historicoPrecos[(nome || '').toLowerCase()] || 0;
 
 
     tr.innerHTML = `
@@ -755,6 +822,12 @@ function adicionarPendenciasAoPedido() {
       </td>
       <td><input type="number" class="form-control fn-qtd" min="0" step="0.01" value="${qtd}" oninput="calcTabela()"></td>
       <td>
+        <input type="text" class="form-control fn-preco-ant text-muted bg-light" value="${precoAnterior ? 'R$ ' + Number(precoAnterior).toFixed(2) : '-'}" readonly>
+      </td>
+      <td>
+        <input type="number" class="form-control fn-preco" min="0" step="0.01" value="${preco}"
+          oninput="atualizarIndicador(this); verificarInflacao(this.closest('tr').querySelector('.fn-nome')); calcTabela()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); adicionarLinhaVazia(); this.closest('tr').nextElementSibling?.querySelector('.fn-nome')?.focus();}">
 
         <small class="indicador-preco d-block"></small>
         <small class="alerta-inflacao hidden"></small>
@@ -816,13 +889,16 @@ function adicionarPendenciasAoPedido() {
 
     const sel = document.getElementById('select-fornecedor');
     
+    if (!sel.value) return mostrarToast('Selecione um fornecedor.', 'error');
+
     pedidoParaSalvar = { 
       idFornecedor: sel.value, 
       nomeFornecedor: sel.options[sel.selectedIndex].text, 
       financeiro: document.getElementById('ped-financeiro').value, 
       prazo: document.getElementById('ped-prazo').value || '0', 
       obs: document.getElementById('ped-obs').value, 
-      itens: itens, 
+      itens: itens,
+      pendenciasVinculadas: pendenciasSelecionadasPedido.slice(),
       totalCalc: total 
     };
 
@@ -881,6 +957,8 @@ function adicionarPendenciasAoPedido() {
     document.getElementById('area-repetir').style.display = 'none'; 
     document.getElementById('area-tabela-pedido').classList.add('hidden');
     document.getElementById('txt-data-prazo').innerText = '';
+    pendenciasSelecionadasPedido = [];
+    renderizarPendenciasSelecionadas();
   }
 
   function enviarWhatsManual(p) {
@@ -907,6 +985,13 @@ function adicionarPendenciasAoPedido() {
         pedidosEmCache = pedidos || []; 
         filtrarGestor(); 
         atualizarKPIsGestor();
+      })
+      .withFailureHandler(function(err) {
+        showLoad(false);
+        pedidosEmCache = [];
+        filtrarGestor();
+        atualizarKPIsGestor();
+        mostrarToast('Erro ao carregar gestor: ' + err, 'error');
 
       })
       .getPedidosStatus(sessionToken);
