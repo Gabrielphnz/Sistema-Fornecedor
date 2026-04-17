@@ -89,6 +89,36 @@
     .kpi-chip { border-radius: 12px; padding: 12px 14px; background: #fff; border: 1px solid #eceff4; }
     .kpi-chip .v { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
 
+/* Ajuste de Alinhamento Global */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .section-title { font-size: 1.5rem; font-weight: 700; color: var(--primary); margin: 0; }
+    
+    /* Tabelas Modernas e Alinhadas */
+    .table-modern thead th { 
+      background-color: #f8fafc; 
+      text-transform: uppercase; 
+      font-size: 0.75rem; 
+      letter-spacing: 0.05em; 
+      color: #64748b; 
+      border-top: none;
+      padding: 12px 15px;
+    }
+    .table-modern tbody td { padding: 15px; vertical-align: middle; }
+    .text-end-custom { text-align: right !important; padding-right: 20px !important; }
+
+    /* Chips de KPI (se quiser usar o resumo no topo) */
+    .kpi-container { display: flex; gap: 15px; margin-bottom: 20px; }
+    .kpi-card { background: white; padding: 15px; border-radius: 12px; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #edf2f7; text-align: center; }
+
+/* Tabela Ocupando 100% e Coluna de Ações Ajustável e Alinhada */
+    .table-modern { width: 100% !important; }
+    .col-acao { 
+      width: 1% !important; 
+      white-space: nowrap !important; 
+      text-align: right !important; 
+      padding-right: 20px !important; 
+    }
+
   </style>
 </head>
 <body>
@@ -230,75 +260,113 @@
     </div>
   </div>
 
-  <div id="modulo-status" class="hidden">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3 class="section-title"><i class="fas fa-tasks"></i> Gestor de Pedidos</h3>
-      <button class="btn btn-outline-primary" onclick="atualizarTabelaStatus()"><i class="fas fa-sync"></i> Atualizar</button>
+<div id="modulo-status" class="hidden">
+    <div class="section-header">
+      <h3 class="section-title"><i class="fas fa-tasks me-2"></i> Gestor de Pedidos</h3>
+      <button class="btn btn-outline-primary btn-sm" onclick="atualizarTabelaStatus()">
+        <i class="fas fa-sync-alt me-1"></i> Atualizar Tabela
+      </button>
     </div>
-    <div class="row g-2 mb-3">
-      <div class="col-md-4"><div class="kpi-chip"><small>Total</small><div class="v" id="kpi-total-pedidos">0</div></div></div>
-      <div class="col-md-4"><div class="kpi-chip"><small>Pendentes</small><div class="v" id="kpi-pendentes">0</div></div></div>
-      <div class="col-md-4"><div class="kpi-chip"><small>Parciais</small><div class="v" id="kpi-parciais">0</div></div></div>
-    </div>
-    <input type="text" id="filtro-gestor" class="form-control mb-3" placeholder="Buscar por fornecedor..." onkeyup="filtrarGestor()">
-    <div class="table-responsive card-pedido p-0 panel-soft">
-      <table class="table table-hover mb-0 table-modern">
-        <thead><tr><th>ID</th><th>Fornecedor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
-        <tbody id="corpo-gestor"></tbody>
-      </table>
+
+    <div class="card-pedido">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="filtro-gestor" class="form-control border-start-0 ps-0" placeholder="Filtrar por fornecedor..." onkeyup="filtrarGestor()">
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover table-modern mb-0">
+          <thead>
+            <tr>
+              <th style="width: 100px">ID Pedido</th>
+              <th>Fornecedor</th>
+              <th style="width: 150px">Data Emissão</th>
+              <th style="width: 180px">Estado Atual</th>
+              <th class="col-acao">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-gestor">
+            </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
-  <div id="modulo-trocas" class="hidden">
-    <h3 class="mb-4"><i class="fas fa-exchange-alt text-primary"></i> Trocas e Devoluções</h3>
+<div id="modulo-trocas" class="hidden">
+    <h3 class="section-title mb-4"><i class="fas fa-exchange-alt me-2"></i> Trocas e Devoluções</h3>
     
-    <div class="card-pedido bg-light border-0">
-      <h5 class="mb-3 text-primary">Registrar Troca/Devolução</h5>
-      <div class="row g-2 align-items-end">
-        <div class="col-md-4">
-          <label class="small text-muted">Fornecedor</label>
-          <select id="troca-fornecedor" class="form-select" onchange="carregarProdutosParaTroca(); carregarPedidosParaTroca(); carregarTrocas();"><option value="">Selecione...</option></select>
+    <div class="card-pedido bg-light border-0 mb-4">
+      <h6 class="fw-bold mb-3"><i class="fas fa-plus-circle me-1"></i> Novo Registo</h6>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="small fw-bold text-muted mb-1">Fornecedor Responsável</label>
+          <select id="troca-fornecedor" class="form-select" onchange="carregarProdutosParaTroca(); carregarPedidosParaTroca(); carregarTrocas();"></select>
+        </div>
+        <div class="col-md-3">
+          <label class="small fw-bold text-muted mb-1">Pedido Relacionado</label>
+          <select id="troca-pedido" class="form-select"></select>
         </div>
         <div class="col-md-4">
-          <label class="small text-muted">Pedido</label>
-          <select id="troca-pedido" class="form-select"><option value="">Selecione o pedido...</option></select>
-        </div>
-        <div class="col-md-4">
-          <label class="small text-muted">Produto</label>
-          <select id="troca-produto" class="form-select"><option value="">Selecione...</option></select>
+          <label class="small fw-bold text-muted mb-1">Produto para Troca</label>
+          <select id="troca-produto" class="form-select"></select>
         </div>
         <div class="col-md-2">
-          <label class="small text-muted">Qtd</label>
+          <label class="small fw-bold text-muted mb-1">Quantidade</label>
           <input type="number" id="troca-qtd" class="form-control" placeholder="0">
         </div>
-        <div class="col-md-2">
-          <label class="small text-muted">Valor</label>
-          <input type="number" id="troca-valor" class="form-control" placeholder="R$">
+        <div class="col-md-3">
+          <label class="small fw-bold text-muted mb-1">Valor Unitário</label>
+          <div class="input-group">
+            <span class="input-group-text">R$</span>
+            <input type="number" id="troca-valor" class="form-control" placeholder="0,00">
+          </div>
         </div>
         <div class="col-md-3">
-          <label class="small text-muted">Tipo</label>
-          <select id="troca-tipo" class="form-select"><option value="Troca">Troca</option><option value="Devolucao">Devolução</option></select>
+          <label class="small fw-bold text-muted mb-1">Tipo de Operação</label>
+          <select id="troca-tipo" class="form-select">
+            <option value="Troca">🔄 Troca</option>
+            <option value="Devolucao">⬅️ Devolução</option>
+          </select>
         </div>
-        <div class="col-md-3">
-          <label class="small text-muted">Observação</label>
-          <input type="text" id="troca-obs" class="form-control" placeholder="Motivo...">
+        <div class="col-md-4">
+          <label class="small fw-bold text-muted mb-1">Motivo / Observação</label>
+          <input type="text" id="troca-obs" class="form-control" placeholder="Ex: Produto vencido">
         </div>
         <div class="col-md-2">
-          <button class="btn-main w-100" onclick="salvarTrocaFront()">Registrar</button>
+          <button class="btn-main w-100 py-2" onclick="salvarTrocaFront()">
+            <i class="fas fa-save me-1"></i> Gravar
+          </button>
         </div>
       </div>
     </div>
 
     <div class="card-pedido">
-      <h5 class="mb-3 text-primary">Histórico</h5>
+      <h6 class="fw-bold mb-3 text-primary">Histórico de Pendências</h6>
       <div class="table-responsive">
-        <table class="table table-hover mb-0" id="tabela-trocas">
-          <thead class="bg-light"><tr><th>Data</th><th>Pedido</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Tipo</th><th>Status</th><th class="text-end">Ação</th></tr></thead>
-          <tbody id="corpo-trocas"></tbody>
+        <table class="table table-hover table-modern mb-0">
+          <thead>
+            <tr>
+              <th style="width: 110px">Data</th>
+              <th>Pedido</th>
+              <th>Produto</th>
+              <th class="text-center">Qtd</th>
+              <th>V. Total</th>
+              <th>Operação</th>
+              <th>Status</th>
+              <th class="col-acao">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-trocas">
+            </tbody>
         </table>
       </div>
     </div>
   </div>
+
 </div>
 
 <!-- MODALS -->
@@ -994,7 +1062,7 @@ function adicionarPendenciasAoPedido() {
     document.getElementById('kpi-parciais').innerText = parciais;
   }
 
-  function filtrarGestor() {
+function filtrarGestor() {
     const termo = document.getElementById('filtro-gestor').value.toLowerCase();
     const filtrados = (pedidosEmCache || []).filter(function(p) {
       return (p[1] || '').toString().toLowerCase().includes(termo);
@@ -1020,11 +1088,61 @@ function adicionarPendenciasAoPedido() {
         html += '<td class="fw-bold">' + (p[1] || 'Sem Nome') + '</td>';
         html += '<td>' + dData + '</td>';
         html += '<td><span class="badge bg-' + cor + '">' + (p[3] || '') + '</span></td>';
-        html += '<td><button class="btn btn-sm btn-light border"><i class="fas fa-chevron-right text-primary"></i></button></td></tr>';
+        // CORREÇÃO AQUI: Adicionado text-end-custom no <td> e texto "Ver" no botão para ficar com design ERP
+        html += '<td class="text-end-custom"><button class="btn btn-sm btn-light border"><i class="fas fa-eye text-primary me-1"></i> Ver</button></td></tr>';
       });
     }
 
     document.getElementById('corpo-gestor').innerHTML = html;
+  }
+
+  function carregarTrocas() {
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Selecione fornecedor</td></tr>'; 
+      return; 
+    }
+    
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(trocas) {
+        showLoad(false); 
+        trocas = trocas || [];
+        let html = '';
+        if(trocas.length === 0) { 
+          html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma troca.</td></tr>'; 
+        } else {
+          trocas.forEach(function(t) {
+            let dataStr = t.data ? new Date(t.data).toLocaleDateString() : '';
+            let idStr = t.pedidoId ? (t.pedidoId||'').toString().split('-')[1] || t.pedidoId : '-';
+            let tipoStr = t.tipo === 'Troca' ? '🔄 Troca' : '⬅️ Devolução';
+            let statusClass = t.status === 'Resolvido' ? 'success' : 'warning text-dark';
+            
+            let btnAcao = '<i class="fas fa-check text-success"></i>';
+            if (t.status !== 'Resolvido') {
+              btnAcao = '<button class="btn btn-sm btn-success" onclick="resolverTrocaFront(' + "'" + t.id + "'" + ')">Resolver</button>';
+            }
+            
+            html += '<tr class="align-middle">';
+            html += '<td>' + dataStr + '</td>';
+            html += '<td><small class="text-muted">' + idStr + '</small></td>';
+            html += '<td class="fw-bold">' + (t.produto||'') + '</td>';
+            html += '<td class="text-center">' + (t.quantidade||0) + '</td>';
+            html += '<td class="text-muted">R$ ' + (parseFloat(t.valor)||0).toFixed(2) + '</td>';
+            html += '<td>' + tipoStr + '</td>';
+            html += '<td><span class="badge bg-' + statusClass + '">' + (t.status||'') + '</span></td>';
+            // CORREÇÃO AQUI: Mudado de text-end para text-end-custom
+            html += '<td class="text-end-custom">' + btnAcao + '</td></tr>';
+          });
+        }
+        document.getElementById('corpo-trocas').innerHTML = html;
+      })
+      .withFailureHandler(function(err) {
+        showLoad(false);
+        document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro ao carregar trocas</td></tr>';
+        mostrarToast('Erro ao carregar trocas: ' + err, 'error');
+      })
+      .getTrocasPorFornecedor(fornId, sessionToken);
   }
 
   function abrirVisualizador(idPedido) {
@@ -1325,53 +1443,7 @@ function autoPreencherPreco(input) {
       .salvarTroca(troca, sessionToken);
   }
 
-  function carregarTrocas() {
-    const fornId = document.getElementById('troca-fornecedor').value;
-    if (!fornId) { 
-      document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Selecione fornecedor</td></tr>'; 
-      return; 
-    }
-    
-    showLoad(true);
-    google.script.run
-      .withSuccessHandler(function(trocas) {
-        showLoad(false); 
-        trocas = trocas || [];
-        let html = '';
-        if(trocas.length === 0) { 
-          html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma troca.</td></tr>'; 
-        } else {
-          trocas.forEach(function(t) {
-            let dataStr = t.data ? new Date(t.data).toLocaleDateString() : '';
-            let idStr = t.pedidoId ? (t.pedidoId||'').toString().split('-')[1] || t.pedidoId : '-';
-            let tipoStr = t.tipo === 'Troca' ? '🔄 Troca' : '⬅️ Devolução';
-            let statusClass = t.status === 'Resolvido' ? 'success' : 'warning text-dark';
-            
-            let btnAcao = '<i class="fas fa-check text-success"></i>';
-            if (t.status !== 'Resolvido') {
-              btnAcao = '<button class="btn btn-sm btn-success" onclick="resolverTrocaFront(' + "'" + t.id + "'" + ')">Resolver</button>';
-            }
-            
-            html += '<tr class="align-middle">';
-            html += '<td>' + dataStr + '</td>';
-            html += '<td><small class="text-muted">' + idStr + '</small></td>';
-            html += '<td class="fw-bold">' + (t.produto||'') + '</td>';
-            html += '<td class="text-center">' + (t.quantidade||0) + '</td>';
-            html += '<td class="text-muted">R$ ' + (parseFloat(t.valor)||0).toFixed(2) + '</td>';
-            html += '<td>' + tipoStr + '</td>';
-            html += '<td><span class="badge bg-' + statusClass + '">' + (t.status||'') + '</span></td>';
-            html += '<td class="text-end">' + btnAcao + '</td></tr>';
-          });
-        }
-        document.getElementById('corpo-trocas').innerHTML = html;
-      })
-      .withFailureHandler(function(err) {
-        showLoad(false);
-        document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro ao carregar trocas</td></tr>';
-        mostrarToast('Erro ao carregar trocas: ' + err, 'error');
-      })
-      .getTrocasPorFornecedor(fornId, sessionToken);
-  }
+
 
 function carregarTrocasPedido(pedidoId) {
   const alvo = pedidoId || (pedidoSelecionadoVisualizador ? pedidoSelecionadoVisualizador[0] : '');
