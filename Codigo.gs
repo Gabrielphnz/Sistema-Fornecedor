@@ -1,5 +1,13 @@
 const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg";
 
+function ok(dados, mensagem) {
+  return { sucesso: true, dados: dados || null, mensagem: mensagem || "" };
+}
+
+function erro(mensagem) {
+  return { sucesso: false, mensagem: mensagem || "Erro" };
+}
+
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
@@ -137,25 +145,12 @@ function salvarPedido(pedido, token) {
 }
 
 function getPedidosStatus(token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada");
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
-  if (!aba) return ok([]);
+  if (!aba) return [];
 
-  const dados = aba.getDataRange().getValues().slice(1)
-    .filter(r => r[0] !== "")
-    .map(r => ({
-      id: r[0],
-      fornecedor: r[1],
-      data: r[2],
-      status: r[3],
-      prazo: r[4],
-      financeiro: r[5],
-      obs: r[6],
-      fornecedorId: r[7]
-    }));
-
-  return ok(dados);
+  return aba.getDataRange().getValues().slice(1).filter(r => r[0] !== "");
 }
 
 function excluirPedido(idPedido, token) {
@@ -401,8 +396,14 @@ function getDashboardData(token) {
 function salvarTroca(dados, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
-  if (!dados.pedidoId) {
-    throw new Error("pedidoId é obrigatório.");
+  if (!dados || !dados.pedidoId || !dados.pedidoId.toString().trim()) {
+    throw new Error("Selecione o pedido para registrar a troca/devolução.");
+  }
+  if (!dados.fornecedorId || !dados.produto) {
+    throw new Error("Fornecedor e produto são obrigatórios.");
+  }
+  if ((Number(dados.quantidade) || 0) <= 0) {
+    throw new Error("Quantidade deve ser maior que zero.");
   }
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
@@ -411,9 +412,9 @@ function salvarTroca(dados, token) {
 
   aba.appendRow([
     Utilities.getUuid(),
-    dados.pedidoId,
+    dados.pedidoId.toString().trim(),
     dados.fornecedorId || "",
-    dados.produto || "",
+    dados.produto.toString().trim(),
     Number(dados.quantidade) || 0,
     Number(dados.valor) || 0,
     dados.tipo || "Troca",
@@ -426,19 +427,20 @@ function salvarTroca(dados, token) {
 }
 
 function getTrocaPorPedido(pedidoId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const trocas = getTrocas(token) || [];
-  return trocas.filter(t => t.pedidoId === pedidoId);
+  return trocas.filter(t => t.pedidoId.toString() === pedidoId.toString());
 }
 
 function getTrocasPorFornecedor(fornecedorId, token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada.");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
-  if (!aba) return ok([]);
+  if (!aba) return [];
 
   const dados = aba.getDataRange().getValues().slice(1);
 
-  const resultado = dados
+  return dados
     .filter(row => row[2].toString() === fornecedorId.toString())
     .map(row => ({
       id: row[0],
@@ -452,24 +454,24 @@ function getTrocasPorFornecedor(fornecedorId, token) {
       data: row[8],
       status: row[9]
     }));
-
-  return ok(resultado);
 }
 
 function resolverTroca(idTroca, token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada.");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
+  if (!aba) throw new Error("Aba Trocas_Devolucoes não encontrada.");
+
   const dados = aba.getDataRange().getValues();
 
   for (let i = 1; i < dados.length; i++) {
     if (dados[i][0] === idTroca) {
       aba.getRange(i + 1, 10).setValue("Resolvido");
-      return ok(true, "Troca resolvida.");
+      return true;
     }
   }
 
-  return erro("Troca não encontrada.");
+  throw new Error("Troca não encontrada.");
 }
 // ===================== CATÁLOGO E REPOSIÇÃO AUTOMÁTICA =====================
 
@@ -529,4 +531,10 @@ function getTrocas(token) {
     data: row[8],
     status: row[9]
   }));
+}
+
+
+function getProdutosPorFornecedorSelect(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  return getCatalogoFornecedor(fornecedorId, token);
 }
