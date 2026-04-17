@@ -33,6 +33,22 @@
       .main-content.expanded { margin-left: 0; }
     }
 
+    .badge-status {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
+.card-padrao {
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.btn-padrao {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
     /* CARDS & UI */
     .card-pedido { background: var(--card-bg); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.02); }
     .btn-main { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border-radius: 10px; padding: 12px; border: none; font-weight: 700; transition: 0.3s; box-shadow: 0 4px 10px rgba(76, 17, 48, 0.2); }
@@ -603,7 +619,18 @@
     
     let h1 = '<td><div class="d-flex align-items-center"><input type="text" list="catalogo-produtos" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)">' + badge + '</div><small class="alerta-inflacao hidden"></small></td>';
     let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
-    let h3 = '<td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="' + preco + '" oninput="calcTabela(); verificarInflacao(this.closest(' + "'tr'" + ').querySelector(' + "'.fn-nome'" + '))"></td>';
+let indicador = compararPreco(preco, historicoPrecos[nome.toLowerCase()]);
+
+let h3 = `
+<td>
+  <div class="d-flex align-items-center gap-2">
+    <input type="number" class="form-control border-0 bg-light fn-preco text-end"
+      value="${preco}"
+      oninput="calcTabela(); verificarInflacao(this.closest('tr').querySelector('.fn-nome'))">
+    ${indicador}
+  </div>
+</td>
+`;
     let h4 = '<td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>';
     let h5 = '<td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest(' + "'tr'" + ').remove(); calcTabela();"></i></td>';
     
@@ -766,7 +793,15 @@
       html = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum pedido.</td></tr>'; 
     } else {
       filtrados.slice().reverse().forEach(function(p) {
-        let cor = p[3] === 'Entregue' ? 'success' : p[3] === 'Pendente' ? 'warning text-dark' : p[3] === 'Devolvido' ? 'danger' : 'info text-dark';
+let cor = {
+  "Entregue": "success",
+  "Pendente": "warning text-dark",
+  "Parcialmente Entregue": "info",
+  "Devolvido": "danger"
+}[p[3]] || "secondary";
+let badgeUrgente = p[3] === 'Pendente' ? 
+  '<span class="badge bg-danger ms-2">Atenção</span>' : '';
+
         let idLimpo = (p[0]||'').toString().split('-')[1] || p[0];
         let dData = p[2] ? new Date(p[2]).toLocaleDateString() : '';
         
@@ -789,7 +824,12 @@
     document.getElementById('vis-id').innerText = '📦 ' + p[0];
     document.getElementById('vis-forn').innerText = p[1] || '';
     
-    let cor = p[3] === 'Entregue' ? 'success' : p[3] === 'Pendente' ? 'warning text-dark' : p[3] === 'Devolvido' ? 'danger' : 'info text-dark';
+let cor = {
+  "Entregue": "success",
+  "Pendente": "warning text-dark",
+  "Parcialmente Entregue": "info",
+  "Devolvido": "danger"
+}[p[3]] || "secondary";
     document.getElementById('vis-status').className = 'badge bg-' + cor + ' fs-6';
     document.getElementById('vis-status').innerText = p[3] || '';
     document.getElementById('vis-info').innerText = (p[4] || 0) + ' Dias | ' + (p[5] || '');
@@ -941,17 +981,17 @@ function registrarTroca(pedidoId, itensTroca, motivo) {
 }
 
 function compararPreco(atual, anterior) {
-  if (!anterior) return '';
+  if (!anterior || anterior === 0) return '';
 
   if (atual > anterior) {
-    return '<span style="color:red">▲</span>';
+    return '<span style="color:#e74c3c; font-weight:bold;">▲</span>';
   }
 
   if (atual < anterior) {
-    return '<span style="color:green">▼</span>';
+    return '<span style="color:#27ae60; font-weight:bold;">▼</span>';
   }
 
-  return '';
+  return '<span style="color:#7f8c8d;">■</span>';
 }
 
 
