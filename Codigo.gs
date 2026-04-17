@@ -1,5 +1,13 @@
 const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg";
 
+function ok(dados, mensagem) {
+  return { sucesso: true, dados: dados || null, mensagem: mensagem || "" };
+}
+
+function erro(mensagem) {
+  return { sucesso: false, mensagem: mensagem || "Erro" };
+}
+
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
@@ -75,36 +83,91 @@ function getFornecedores(token) {
 // ===================== PRODUTOS E PEDIDOS =====================
 
 function getProdutosPorFornecedor(fornecedorId) {
+  if (!fornecedorId) return [];
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
+  if (!aba) return [];
   const dados = aba.getDataRange().getValues().slice(1);
 
-  const filtrados = dados.filter(l => l[1] == fornecedorId);
+  const filtrados = dados.filter(l => String(l[1] || "") === String(fornecedorId));
+  const nomes = filtrados
+    .map(l => (l[2] || "").toString().trim())
+    .filter(Boolean);
 
-  return [...new Set(filtrados.map(l => l[2]))]; // nomes únicos
+  return [...new Set(nomes)]; // nomes únicos
 }
 
 function getUltimoPreco(produto, fornecedorId) {
+  const nomeProduto = (produto || "").toString().trim().toLowerCase();
+  if (!fornecedorId || !nomeProduto) return "";
+
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
+  if (!aba) return "";
   const dados = aba.getDataRange().getValues().slice(1);
 
   const filtrados = dados
-    .filter(l => l[1] == fornecedorId && l[2].toLowerCase() == produto.toLowerCase())
-    .sort((a,b) => new Date(b[4]) - new Date(a[4]));
+    .filter(l => {
+      const idFornecedor = String(l[1] || "");
+      const nome = (l[2] || "").toString().trim().toLowerCase();
+      return idFornecedor === String(fornecedorId) && nome === nomeProduto;
+    })
+    .sort((a, b) => new Date(b[4]) - new Date(a[4]));
 
   return filtrados[0]?.[3] || "";
 }
 
-function getSeta(precoAtual, nome) {
-  const anterior = historico[nome.toLowerCase()];
-  if (!anterior) return '';
+function getPendenciasFornecedor(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  const pendencias = [];
 
-  if (precoAtual > anterior) return '<span style="color:#e74c3c;">▲</span>';
-  if (precoAtual < anterior) return '<span style="color:#27ae60;">▼</span>';
+  const abaTrocas = ss.getSheetByName("Trocas_Devolucoes");
+  if (abaTrocas) {
+    const trocas = abaTrocas.getDataRange().getValues().slice(1);
+    trocas.forEach(row => {
+      if (row[2].toString() === fornecedorId.toString() && row[9] === "Ativo") {
+        pendencias.push({
+          tipo: "troca",
+          origemId: row[0],
+          pedidoId: row[1],
+          produto: row[3],
+          quantidade: Number(row[4]) || 0,
+          valor: Number(row[5]) || 0,
+          descricao: `Troca pendente: ${row[3]} (${row[4]})`
+        });
+      }
+    });
+  }
+
+  const abaFalhas = ss.getSheetByName("Historico_Falhas");
+  if (abaFalhas) {
+    const falhas = abaFalhas.getDataRange().getValues().slice(1);
+    falhas.forEach(row => {
+      if (row[1].toString() === fornecedorId.toString() && row[5] === "Pendente") {
+        pendencias.push({
+          tipo: "falta",
+          origemId: `${row[4]}-${row[2]}`,
+          pedidoId: row[4],
+          produto: row[2],
+          quantidade: Number(row[3]) || 0,
+          valor: 0,
+          descricao: `Falta pendente: ${row[2]} (${row[3]})`
+        });
+      }
+    });
+  }
+
+  return pendencias;
+}
+
+function getSeta(precoAtual, nome) {
   return '';
 }
 
 function salvarPedido(pedido, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  if (!pedido || !pedido.idFornecedor) throw new Error("Fornecedor é obrigatório.");
+  if (!Array.isArray(pedido.itens) || pedido.itens.length === 0) throw new Error("Inclua ao menos um item no pedido.");
+
   const ss = SpreadsheetApp.openById(ID_PLANILHA);
   let abaMestre = ss.getSheetByName("Pedidos_Mestre");
   if (!abaMestre) abaMestre = ss.insertSheet("Pedidos_Mestre");
@@ -122,40 +185,34 @@ function salvarPedido(pedido, token) {
     pedido.obs,
     pedido.idFornecedor
   ]);
-  const linhas = pedido.itens.map(item => [
+
+  const itensValidos = pedido.itens.filter(item => item && item.nome && (Number(item.qtd) || 0) > 0);
+  const linhas = itensValidos.map(item => [
     idPedido,
     item.nome,
-    parseFloat(item.preco),
-    item.qtd,
-    item.bonificado,
-    item.validade
+    Number(item.preco) || 0,
+    Number(item.qtd) || 0,
+    item.bonificado || "Não",
+    item.validade || ""
   ]);
-  if (linhas.length > 0) {
-    abaItens.getRange(abaItens.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
+
+  if (linhas.length === 0) throw new Error("Nenhum item válido para salvar.");
+  abaItens.getRange(abaItens.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
+
+  if (Array.isArray(pedido.pendenciasVinculadas) && pedido.pendenciasVinculadas.length > 0) {
+    vincularPendenciasAoPedido(idPedido, pedido.pendenciasVinculadas, token);
   }
+
   return idPedido;
 }
 
 function getPedidosStatus(token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada");
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
-  if (!aba) return ok([]);
+  if (!aba) return [];
 
-  const dados = aba.getDataRange().getValues().slice(1)
-    .filter(r => r[0] !== "")
-    .map(r => ({
-      id: r[0],
-      fornecedor: r[1],
-      data: r[2],
-      status: r[3],
-      prazo: r[4],
-      financeiro: r[5],
-      obs: r[6],
-      fornecedorId: r[7]
-    }));
-
-  return ok(dados);
+  return aba.getDataRange().getValues().slice(1).filter(r => r[0] !== "");
 }
 
 function excluirPedido(idPedido, token) {
@@ -401,8 +458,14 @@ function getDashboardData(token) {
 function salvarTroca(dados, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
-  if (!dados.pedidoId) {
-    throw new Error("pedidoId é obrigatório.");
+  if (!dados || !dados.pedidoId || !dados.pedidoId.toString().trim()) {
+    throw new Error("Selecione o pedido para registrar a troca/devolução.");
+  }
+  if (!dados.fornecedorId || !dados.produto) {
+    throw new Error("Fornecedor e produto são obrigatórios.");
+  }
+  if ((Number(dados.quantidade) || 0) <= 0) {
+    throw new Error("Quantidade deve ser maior que zero.");
   }
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
@@ -411,9 +474,9 @@ function salvarTroca(dados, token) {
 
   aba.appendRow([
     Utilities.getUuid(),
-    dados.pedidoId,
+    dados.pedidoId.toString().trim(),
     dados.fornecedorId || "",
-    dados.produto || "",
+    dados.produto.toString().trim(),
     Number(dados.quantidade) || 0,
     Number(dados.valor) || 0,
     dados.tipo || "Troca",
@@ -426,19 +489,20 @@ function salvarTroca(dados, token) {
 }
 
 function getTrocaPorPedido(pedidoId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
   const trocas = getTrocas(token) || [];
-  return trocas.filter(t => t.pedidoId === pedidoId);
+  return trocas.filter(t => t.pedidoId.toString() === pedidoId.toString());
 }
 
 function getTrocasPorFornecedor(fornecedorId, token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada.");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
-  if (!aba) return ok([]);
+  if (!aba) return [];
 
   const dados = aba.getDataRange().getValues().slice(1);
 
-  const resultado = dados
+  return dados
     .filter(row => row[2].toString() === fornecedorId.toString())
     .map(row => ({
       id: row[0],
@@ -452,24 +516,83 @@ function getTrocasPorFornecedor(fornecedorId, token) {
       data: row[8],
       status: row[9]
     }));
-
-  return ok(resultado);
 }
 
 function resolverTroca(idTroca, token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada.");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
+  if (!aba) throw new Error("Aba Trocas_Devolucoes não encontrada.");
+
   const dados = aba.getDataRange().getValues();
 
   for (let i = 1; i < dados.length; i++) {
     if (dados[i][0] === idTroca) {
       aba.getRange(i + 1, 10).setValue("Resolvido");
-      return ok(true, "Troca resolvida.");
+      return true;
     }
   }
 
-  return erro("Troca não encontrada.");
+  throw new Error("Troca não encontrada.");
+}
+
+
+function vincularPendenciasAoPedido(idPedido, pendencias, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  if (!Array.isArray(pendencias) || pendencias.length === 0) return true;
+
+  const ss = SpreadsheetApp.openById(ID_PLANILHA);
+  let abaVinculos = ss.getSheetByName("Pendencias_Pedido");
+  if (!abaVinculos) {
+    abaVinculos = ss.insertSheet("Pendencias_Pedido");
+    abaVinculos.appendRow(["Data", "PedidoId", "Tipo", "OrigemId", "Produto", "Quantidade", "Valor"]);
+  }
+
+  const linhas = [];
+  pendencias.forEach(p => {
+    if (!p || !p.tipo || !p.origemId) return;
+    linhas.push([
+      new Date(),
+      idPedido,
+      p.tipo,
+      p.origemId,
+      p.produto || "",
+      Number(p.quantidade) || 0,
+      Number(p.valor) || 0
+    ]);
+
+    if (p.tipo === "troca") {
+      const abaTrocas = ss.getSheetByName("Trocas_Devolucoes");
+      if (abaTrocas) {
+        const dadosTroca = abaTrocas.getDataRange().getValues();
+        for (let i = 1; i < dadosTroca.length; i++) {
+          if (String(dadosTroca[i][0]) === String(p.origemId) && dadosTroca[i][9] === "Ativo") {
+            abaTrocas.getRange(i + 1, 10).setValue("Em cobrança " + idPedido);
+            break;
+          }
+        }
+      }
+    }
+
+    if (p.tipo === "falta") {
+      const abaFalhas = ss.getSheetByName("Historico_Falhas");
+      if (abaFalhas) {
+        const dadosFalha = abaFalhas.getDataRange().getValues();
+        for (let i = 1; i < dadosFalha.length; i++) {
+          const origem = `${dadosFalha[i][4]}-${dadosFalha[i][2]}`;
+          if (origem === String(p.origemId) && dadosFalha[i][5] === "Pendente") {
+            abaFalhas.getRange(i + 1, 6).setValue("Em cobrança " + idPedido);
+          }
+        }
+      }
+    }
+  });
+
+  if (linhas.length > 0) {
+    abaVinculos.getRange(abaVinculos.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
+  }
+
+  return true;
 }
 // ===================== CATÁLOGO E REPOSIÇÃO AUTOMÁTICA =====================
 
@@ -529,4 +652,10 @@ function getTrocas(token) {
     data: row[8],
     status: row[9]
   }));
+}
+
+
+function getProdutosPorFornecedorSelect(fornecedorId, token) {
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+  return getCatalogoFornecedor(fornecedorId, token);
 }
