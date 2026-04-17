@@ -187,7 +187,7 @@
     </div>
   </div>
 
-  <div id="modulo-novo-pedido" class="hidden">
+<div id="modulo-novo-pedido" class="hidden">
     <h3 class="mb-4"><i class="fas fa-shopping-cart text-primary"></i> Montar Pedido</h3>
     
     <div class="card-pedido bg-light border-0">
@@ -197,15 +197,12 @@
           <select id="select-fornecedor" class="form-select" onchange="carregarHistorico()"></select>
         </div>
         <div class="col-md-2 col-4 d-flex gap-2">
-  <button class="btn btn-outline-success w-100" onclick="abrirModalFornecedor()">
-    <i class="fas fa-plus"></i>
-  </button>
-
-  <button class="btn btn-warning w-100" onclick="abrirModuloTrocas()">
-    <i class="fas fa-exchange-alt"></i>
-  </button>
-</div>
-
+          <button class="btn btn-outline-success w-100" onclick="abrirModalFornecedor()">
+            <i class="fas fa-plus"></i>
+          </button>
+          <button class="btn btn-warning w-100" onclick="abrirModuloTrocas()">
+            <i class="fas fa-exchange-alt"></i>
+          </button>
         </div>
       </div>
       
@@ -225,9 +222,7 @@
         <div id="lista-pendencias" class="small text-muted">Sem pendências.</div>
         <div id="pendencias-selecionadas" class="small mt-2 text-muted"></div>
       </div>
-    </div>
-
-    <div id="area-tabela-pedido" class="card-pedido hidden">
+    </div> <div id="area-tabela-pedido" class="card-pedido hidden">
       <div class="d-flex justify-content-between mb-3">
         <h5 class="m-0 text-primary">Itens do Pedido</h5>
         <button class="btn btn-sm btn-outline-primary" onclick="adicionarLinhaVazia()"><i class="fas fa-plus"></i> Linha</button>
@@ -258,7 +253,7 @@
         <div class="col-12"><button class="btn-main w-100 py-3 fs-5" onclick="abrirConfirmacao()"><i class="fas fa-paper-plane"></i> REVISAR E ENVIAR</button></div>
       </div>
     </div>
-  </div>
+  </div> 
 
 <div id="modulo-status" class="hidden">
     <div class="section-header">
@@ -864,57 +859,60 @@ function adicionarPendenciasAoPedido() {
     mostrarModulo('trocas');
   }
 
-  function adicionarLinhaVazia(nome = '', qtd = '', preco = '') {
+function adicionarLinhaVazia(nome, qtd, preco) {
+    // 1. Proteção contra valores nulos
+    nome = nome || ''; 
+    qtd = qtd || ''; 
+    preco = preco || '';
+
     const tbody = document.getElementById('corpo-novo-pedido');
     const tr = document.createElement('tr');
-    tr.className = 'linha-editavel';
+    tr.className = 'linha-editavel border-bottom';
+    
+    // 2. Busca o preço antigo de forma segura
     const precoAnterior = historicoPrecos[(nome || '').toLowerCase()] || 0;
+    const txtPrecoAnt = precoAnterior ? 'R$ ' + parseFloat(precoAnterior).toFixed(2) : '-';
 
-
-    tr.innerHTML = `
-      <td>
-        <input class="form-control fn-nome" list="catalogo-produtos" value="${nome}" placeholder="Produto"
-          oninput="autoPreencherPreco(this); verificarInflacao(this);">
-      </td>
-      <td><input type="number" class="form-control fn-qtd" min="0" step="0.01" value="${qtd}" oninput="calcTabela()"></td>
-      <td>
-        <input type="text" class="form-control fn-preco-ant text-muted bg-light" value="${precoAnterior ? 'R$ ' + Number(precoAnterior).toFixed(2) : '-'}" readonly>
-      </td>
-      <td>
-        <input type="number" class="form-control fn-preco" min="0" step="0.01" value="${preco}"
-          oninput="atualizarIndicador(this); verificarInflacao(this.closest('tr').querySelector('.fn-nome')); calcTabela()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault(); adicionarLinhaVazia(); this.closest('tr').nextElementSibling?.querySelector('.fn-nome')?.focus();}">
-
-        <small class="indicador-preco d-block"></small>
-        <small class="alerta-inflacao hidden"></small>
-      </td>
-      <td class="fn-sub text-end fw-bold">R$ 0.00</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); calcTabela();">
-          <i class="fas fa-trash"></i>
-        </button>
-      </td>
-    `;
-
+    // 3. Constrói o HTML da linha blindado contra erros de aspas
+    let h1 = '<td><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" list="catalogo-produtos" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)"><small class="alerta-inflacao hidden"></small></td>';
+    let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
+    let h3 = '<td><input type="text" class="form-control border-0 bg-light text-muted" value="' + txtPrecoAnt + '" readonly></td>';
+    let h4 = '<td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="' + preco + '" oninput="calcTabela(); verificarInflacao(this.closest(' + "'tr'" + ').querySelector(' + "'.fn-nome'" + '))"></td>';
+    let h5 = '<td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>';
+    let h6 = '<td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest(' + "'tr'" + ').remove(); calcTabela();"></i></td>';
+    
+    tr.innerHTML = h1 + h2 + h3 + h4 + h5 + h6;
     tbody.appendChild(tr);
     document.getElementById('area-tabela-pedido').classList.remove('hidden');
-    atualizarIndicador(tr.querySelector('.fn-preco'));
+    
+    // 4. Calcula os totais e encerra sem funções fantasmas
     calcTabela();
   }
 
-  function repetirPedido() {
+function repetirPedido() {
     const id = document.getElementById('select-repetir').value;
     if(!id) return;
+    
     showLoad(true);
     google.script.run
       .withSuccessHandler(function(itens) {
         showLoad(false); 
         document.getElementById('corpo-novo-pedido').innerHTML = '';
-        (itens || []).forEach(function(i){ adicionarLinhaVazia(i[1], i[3], i[2]); });
-        mostrarToast('Pedido carregado', 'success');
+        
+        // i[1] = Produto | i[3] = Quantidade | i[2] = Preço Unitário
+        (itens || []).forEach(function(i){ 
+          adicionarLinhaVazia(i[1], i[3], i[2]); 
+        });
+        
+        mostrarToast('Pedido carregado para edição!', 'success');
+      })
+      .withFailureHandler(function(err) {
+        showLoad(false);
+        mostrarToast("Erro ao repetir pedido: " + err, "error");
       })
       .getDetalhesPedido(id, sessionToken);
   }
+
 
   function calcTabela() {
     let total = 0;
