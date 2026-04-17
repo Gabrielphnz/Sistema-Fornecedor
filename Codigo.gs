@@ -125,6 +125,7 @@ function getPendenciasFornecedor(fornecedorId, token) {
     const trocas = abaTrocas.getDataRange().getValues().slice(1);
     trocas.forEach(row => {
       if (row[2].toString() === fornecedorId.toString() && row[9] === "Ativo") {
+      if (row[2].toString() === fornecedorId.toString() && row[9] !== "Resolvido") {
         pendencias.push({
           tipo: "troca",
           origemId: row[0],
@@ -155,6 +156,13 @@ function getPendenciasFornecedor(fornecedorId, token) {
       }
     });
   }
+
+  return pendencias;
+}
+
+function getSeta(precoAtual, nome) {
+  const anterior = historico[nome.toLowerCase()];
+  if (!anterior) return '';
 
   return pendencias;
 }
@@ -593,6 +601,7 @@ function vincularPendenciasAoPedido(idPedido, pendencias, token) {
   }
 
   return true;
+  throw new Error("Troca não encontrada.");
 }
 // ===================== CATÁLOGO E REPOSIÇÃO AUTOMÁTICA =====================
 

@@ -712,6 +712,16 @@ function renderizarPendenciasFornecedor() {
     html += `<label class="d-flex justify-content-between align-items-center border rounded p-2 gap-2">
       <span><input type="checkbox" class="form-check-input me-2 pendencia-check" data-idx="${idx}" checked> ${descricao}</span>
       <span class="badge bg-light text-dark border text-uppercase">${tipo}</span>
+  painel.classList.remove('hidden');
+  if (!pendenciasFornecedor.length) {
+    alvo.innerHTML = '<span class="text-muted">Sem pendências para este fornecedor.</span>';
+    return;
+  }
+  let html = '<div class="d-flex flex-column gap-2">';
+  pendenciasFornecedor.forEach((p, idx) => {
+    html += `<label class="d-flex justify-content-between align-items-center border rounded p-2">
+      <span><input type="checkbox" class="form-check-input me-2 pendencia-check" data-idx="${idx}" checked> ${p.descricao}</span>
+      <span class="badge bg-light text-dark border">${p.tipo}</span>
     </label>`;
   });
   html += '</div>';
@@ -753,6 +763,9 @@ function adicionarPendenciasAoPedido() {
     const jaExiste = pendenciasSelecionadasPedido.some(x => x.tipo === p.tipo && String(x.origemId) === String(p.origemId));
     if (jaExiste) return;
 
+  selecionadas.forEach(chk => {
+    const p = pendenciasFornecedor[parseInt(chk.dataset.idx, 10)];
+    if (!p) return;
     const nome = p.tipo === 'troca' ? `[COBRANÇA] ${p.produto}` : `[REPOSIÇÃO] ${p.produto}`;
     const qtd = p.quantidade || 1;
     const preco = p.tipo === 'troca' ? (p.valor || 0) : (historicoPrecos[(p.produto || '').toLowerCase()] || 0);
@@ -770,6 +783,8 @@ function adicionarPendenciasAoPedido() {
   renderizarPendenciasSelecionadas();
   if (!adicionadas) return mostrarToast('As pendências selecionadas já estão no pedido.', 'info');
   mostrarToast(adicionadas + ' pendência(s) adicionada(s) ao pedido.', 'success');
+  });
+  mostrarToast('Pendências adicionadas ao pedido.', 'success');
 }
   
   function verificarInflacao(inputNome) {
@@ -799,6 +814,7 @@ function adicionarPendenciasAoPedido() {
     tr.className = 'linha-editavel';
     const precoAnterior = historicoPrecos[(nome || '').toLowerCase()] || 0;
 
+
     tr.innerHTML = `
       <td>
         <input class="form-control fn-nome" list="catalogo-produtos" value="${nome}" placeholder="Produto"
@@ -812,6 +828,7 @@ function adicionarPendenciasAoPedido() {
         <input type="number" class="form-control fn-preco" min="0" step="0.01" value="${preco}"
           oninput="atualizarIndicador(this); verificarInflacao(this.closest('tr').querySelector('.fn-nome')); calcTabela()"
           onkeydown="if(event.key==='Enter'){event.preventDefault(); adicionarLinhaVazia(); this.closest('tr').nextElementSibling?.querySelector('.fn-nome')?.focus();}">
+
         <small class="indicador-preco d-block"></small>
         <small class="alerta-inflacao hidden"></small>
       </td>
@@ -975,6 +992,7 @@ function adicionarPendenciasAoPedido() {
         filtrarGestor();
         atualizarKPIsGestor();
         mostrarToast('Erro ao carregar gestor: ' + err, 'error');
+
       })
       .getPedidosStatus(sessionToken);
   }
