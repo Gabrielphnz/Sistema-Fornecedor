@@ -1,478 +1,1212 @@
-const ID_PLANILHA = "1pW2lWXnvS0wDBu8xosLsSmlCTmwgrlWJfV4YwNTWGjg";
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css">
+  <style>
+    :root { --primary: #4c1130; --primary-light: #751a4b; --bg: #f4f6f9; --card-bg: #ffffff; }
+    body { background-color: var(--bg); font-family: 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
 
-function doGet() {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Gestão de Pedidos')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
+    /* TOAST & SPINNER */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+    .toast-custom { background: #2d3436; color: white; border-radius: 12px; padding: 14px 24px; margin-top: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 12px; font-weight: 500; }
+    .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center; visibility: hidden; }
+    .spinner-border { width: 3.5rem; height: 3.5rem; border-width: 4px; color: var(--primary); }
 
-function validarLogin(usuario, senha) {
-  try {
-    const ss = SpreadsheetApp.openById(ID_PLANILHA);
-    const aba = ss.getSheetByName("Usuarios");
-    if (!aba) return { sucesso: false, mensagem: "Aba Usuarios não encontrada." };
-    
-    const lastRow = aba.getLastRow();
-    if (lastRow <= 1) return { sucesso: false, mensagem: "Nenhum utilizador cadastrado." };
-    
-    const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
-    
-    // Limpeza de segurança
-    const u = usuario.trim();
-    const s = senha.trim();
+    /* SIDEBAR & TOGGLE */
+    .sidebar { width: 260px; position: fixed; top: 0; left: 0; height: 100%; background: linear-gradient(180deg, var(--primary) 0%, #2b091b 100%); color: white; padding: 70px 20px 20px 20px; z-index: 1050; transition: transform 0.3s ease; box-shadow: 4px 0 15px rgba(0,0,0,0.1); }
+    .sidebar.collapsed { transform: translateX(-100%); }
+    .sidebar h4 { font-weight: 800; margin-bottom: 30px; letter-spacing: 1px; text-transform: uppercase; font-size: 1.2rem; text-align: center; }
+    .sidebar a { color: rgba(255,255,255,0.7); text-decoration: none; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; margin-bottom: 8px; transition: all 0.3s ease; font-weight: 500; cursor: pointer; }
+    .sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
 
-    for (let i = 0; i < dados.length; i++) {
-      // Limpa os dados vindos da folha de cálculo na hora de comparar
-      if (dados[i][2].toString().trim() === u && dados[i][3].toString().trim() === s) {
-        const token = Utilities.getUuid();
-        const usr = { nome: dados[i][1], perfil: dados[i][4], status: dados[i][5] };
-        CacheService.getScriptCache().put(token, JSON.stringify(usr), 14400);
-        return { sucesso: true, token: token, usuario: usr };
-      }
+    #menu-toggle { position: fixed; top: 15px; left: 15px; z-index: 2000; width: 45px; height: 45px; border-radius: 50%; background: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: var(--primary); font-size: 1.2rem; cursor: pointer; }
+
+    .main-content { padding: 80px 20px 20px 20px; min-height: 100vh; transition: margin-left 0.3s ease; }
+    @media (min-width: 769px) {
+      .sidebar { transform: translateX(0); }
+      .sidebar.collapsed { transform: translateX(-100%); }
+      .main-content { margin-left: 260px; }
+      .main-content.expanded { margin-left: 0; }
     }
-    return { sucesso: false, mensagem: "Utilizador ou palavra-passe incorretos." };
-  } catch (e) {
-    return { sucesso: false, mensagem: "Erro interno: " + e.message };
+
+    .badge-status {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
+.card-padrao {
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.btn-padrao {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+    /* CARDS & UI */
+    .card-pedido { background: var(--card-bg); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.02); }
+    .btn-main { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border-radius: 10px; padding: 12px; border: none; font-weight: 700; transition: 0.3s; box-shadow: 0 4px 10px rgba(76, 17, 48, 0.2); }
+    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(76, 17, 48, 0.3); color: white; }
+    .form-control, .form-select { border-radius: 10px; padding: 10px 14px; border: 1px solid #e2e8f0; background-color: #f8fafc; }
+    .form-control:focus, .form-select:focus { border-color: var(--primary-light); box-shadow: none; outline: none; }
+
+    /* MODALS */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; }
+    .modal-card { background: white; width: 95%; max-width: 700px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column; }
+    .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 20px; overflow-y: auto; }
+    .modal-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #eee; border-radius: 0 0 16px 16px; display: flex; justify-content: flex-end; gap: 10px; }
+
+    .hidden { display: none !important; }
+    .dropdown-menu { z-index: 2000 !important; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    
+    /* Dashboard */
+    .dashboard-card { background: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .dashboard-value { font-size: 2rem; font-weight: bold; color: var(--primary); }
+    
+    /* Alerta de Inflação */
+    .alerta-inflacao { color: #d63031; font-size: 0.75rem; font-weight: bold; margin-top: 4px; display: block; }
+
+
+    .indicador-preco span {
+  font-size: 16px;
+}
+
+.alerta-inflacao {
+  color: #d63031;
+  font-weight: 600;
+}
+  </style>
+</head>
+<body>
+<datalist id="catalogo-produtos"></datalist>
+
+<button id="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+<div id="spinner" class="spinner-overlay"><div class="spinner-border" role="status"></div></div>
+<div id="toastContainer" class="toast-container"></div>
+
+<div id="sidebar" class="sidebar hidden">
+  <h4>MERCADO 1.0</h4>
+  <a onclick="mostrarModulo('novo-pedido')"><i class="fas fa-cart-plus"></i> Novo Pedido</a>
+  <a onclick="mostrarModulo('status')"><i class="fas fa-chart-line"></i> Gestor de Pedidos</a>
+  <a onclick="mostrarModulo('fornecedores')"><i class="fas fa-truck"></i> Fornecedores</a>
+  <a onclick="mostrarModulo('trocas')"><i class="fas fa-exchange-alt"></i> Trocas e Devol.</a>
+  <a onclick="mostrarModulo('dashboard')"><i class="fas fa-chart-bar"></i> Dashboard</a>
+  <hr><a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
+</div>
+
+<div class="main-content" id="main-content">
+  <div id="tela-login" class="mt-5 text-center">
+    <h2 class="mb-4" style="color: var(--primary)">Gestão de Pedidos</h2>
+    <div class="card-pedido mx-auto" style="max-width: 350px">
+      <input type="text" id="user" class="form-control mb-3" placeholder="Usuário">
+      <input type="password" id="pass" class="form-control mb-3" placeholder="Senha">
+      <button class="btn-main w-100" onclick="login()">ENTRAR</button>
+    </div>
+  </div>
+
+  <div id="modulo-dashboard" class="hidden">
+    <h3 class="mb-4"><i class="fas fa-chart-bar text-primary"></i> Dashboard</h3>
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="dashboard-card">
+          <small class="text-muted">Total do Mês</small>
+          <div class="dashboard-value" id="dash-total">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="dashboard-card">
+          <small class="text-muted">Pedidos Pendentes</small>
+          <div class="dashboard-value" id="dash-pendentes">0</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="dashboard-card">
+          <small class="text-muted">Taxa de Entrega</small>
+          <div class="dashboard-value" id="dash-taxa">0%</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-pedido">
+      <h5 class="text-primary mb-3">Top 3 Fornecedores (Gastos)</h5>
+      <div id="dash-ranking"></div>
+    </div>
+  </div>
+
+  <div id="modulo-fornecedores" class="hidden">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3><i class="fas fa-truck text-primary"></i> Fornecedores</h3>
+      <button class="btn btn-success" onclick="abrirModalFornecedor()"><i class="fas fa-plus"></i> Novo Fornecedor</button>
+    </div>
+    <div class="card-pedido">
+      <input type="text" id="busca-forn" class="form-control mb-3" placeholder="Pesquisar fornecedor..." onkeyup="filtrarFornecedores()">
+      <div id="lista-fornecedores" class="row g-3"></div>
+    </div>
+  </div>
+
+  <div id="modulo-novo-pedido" class="hidden">
+    <h3 class="mb-4"><i class="fas fa-shopping-cart text-primary"></i> Montar Pedido</h3>
+    
+    <div class="card-pedido bg-light border-0">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-10 col-8">
+          <label class="small fw-bold text-muted">Selecione o Fornecedor</label>
+          <select id="select-fornecedor" class="form-select" onchange="carregarHistorico()"></select>
+        </div>
+        <div class="col-md-2 col-4 d-flex gap-2">
+  <button class="btn btn-outline-success w-100" onclick="abrirModalFornecedor()">
+    <i class="fas fa-plus"></i>
+  </button>
+
+  <button class="btn btn-warning w-100" onclick="abrirModuloTrocas()">
+    <i class="fas fa-exchange-alt"></i>
+  </button>
+</div>
+
+<span class="badge bg-danger" id="badgeTroca_${pedidoId}" style="display:none;">!</span>
+        </div>
+      </div>
+      
+      <div class="row g-2 mt-2" id="area-repetir" style="display: none;">
+        <div class="col-12">
+          <select id="select-repetir" class="form-select border-info" onchange="repetirPedido()">
+            <option value="">🔄 Deseja repetir um pedido anterior?</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="area-tabela-pedido" class="card-pedido hidden">
+      <div class="d-flex justify-content-between mb-3">
+        <h5 class="m-0 text-primary">Itens do Pedido</h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="adicionarLinhaVazia()"><i class="fas fa-plus"></i> Linha</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle" id="tabela-novo-pedido">
+          <thead class="border-bottom"><tr><th>Produto</th><th style="width:100px;">Qtd</th><th style="width:120px;">Preço</th><th style="width:100px;">Subtotal</th><th></th></tr></thead>
+          <tbody id="corpo-novo-pedido"></tbody>
+        </table>
+      </div>
+      
+      <hr>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="small text-muted">Prazo (Dias)</label>
+          <input type="number" id="ped-prazo" class="form-control" placeholder="Ex: 14" oninput="calcularDataPrazo()">
+          <small id="txt-data-prazo" class="text-success fw-bold"></small>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Financeiro</label>
+          <select id="ped-financeiro" class="form-select"><option>Boleto</option><option>Pix</option></select>
+        </div>
+        <div class="col-md-6">
+          <h4 class="text-end text-danger fw-bold m-0 mt-3" id="total-novo-pedido">Total: R$ 0.00</h4>
+        </div>
+        <div class="col-12"><textarea id="ped-obs" class="form-control" placeholder="Observações..." rows="2"></textarea></div>
+        <div class="col-12"><button class="btn-main w-100 py-3 fs-5" onclick="abrirConfirmacao()"><i class="fas fa-paper-plane"></i> REVISAR E ENVIAR</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modulo-status" class="hidden">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3><i class="fas fa-tasks text-primary"></i> Gestor de Pedidos</h3>
+      <button class="btn btn-outline-primary" onclick="atualizarTabelaStatus()"><i class="fas fa-sync"></i></button>
+    </div>
+    <input type="text" id="filtro-gestor" class="form-control mb-3" placeholder="Buscar por fornecedor..." onkeyup="filtrarGestor()">
+    <div class="table-responsive card-pedido p-0">
+      <table class="table table-hover mb-0">
+        <thead class="bg-light"><tr><th>ID</th><th>Fornecedor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody id="corpo-gestor"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="modulo-trocas" class="hidden">
+    <h3 class="mb-4"><i class="fas fa-exchange-alt text-primary"></i> Trocas e Devoluções</h3>
+    
+    <div class="card-pedido bg-light border-0">
+      <h5 class="mb-3 text-primary">Registrar Troca/Devolução</h5>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="small text-muted">Fornecedor</label>
+          <select id="troca-fornecedor" class="form-select" onchange="carregarProdutosParaTroca(); carregarPedidosParaTroca(); carregarTrocas();"><option value="">Selecione...</option></select>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Pedido</label>
+          <select id="troca-pedido" class="form-select"><option value="">Opcional...</option></select>
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Produto</label>
+          <select id="troca-produto" class="form-select"><option value="">Selecione...</option></select>
+        </div>
+        <div class="col-md-1">
+          <label class="small text-muted">Qtd</label>
+          <input type="number" id="troca-qtd" class="form-control" placeholder="0">
+        </div>
+        <div class="col-md-2">
+          <label class="small text-muted">Valor</label>
+          <input type="number" id="troca-valor" class="form-control" placeholder="R$">
+        </div>
+        <div class="col-md-3">
+          <label class="small text-muted">Tipo</label>
+          <select id="troca-tipo" class="form-select"><option value="Troca">Troca</option><option value="Devolucao">Devolução</option></select>
+        </div>
+        <div class="col-md-7">
+          <label class="small text-muted">Observação</label>
+          <input type="text" id="troca-obs" class="form-control" placeholder="Motivo...">
+        </div>
+        <div class="col-md-2">
+          <button class="btn-main w-100" onclick="salvarTrocaFront()">Registrar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-pedido">
+      <h5 class="mb-3 text-primary">Histórico</h5>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="tabela-trocas">
+          <thead class="bg-light"><tr><th>Data</th><th>Pedido</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Tipo</th><th>Status</th><th class="text-end">Ação</th></tr></thead>
+          <tbody id="corpo-trocas"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modalFornecedor" class="modal-overlay hidden" onclick="if(event.target.id==='modalFornecedor') fecharModal('modalFornecedor')">
+  <div class="modal-card">
+    <div class="modal-header"><h5>Cadastro de Fornecedor</h5><button class="btn-close-modal" onclick="fecharModal('modalFornecedor')">&times;</button></div>
+    <div class="modal-body">
+      <input type="text" id="cad-forn-nome" class="form-control mb-3" placeholder="Nome da Empresa">
+      <input type="text" id="cad-forn-tel" class="form-control mb-3" placeholder="WhatsApp">
+      <input type="text" id="cad-forn-dia" class="form-control" placeholder="Dia de Entrega (Ex: Terça)">
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharModal('modalFornecedor')">Cancelar</button><button class="btn btn-success" onclick="salvarNovoFornecedor()">Salvar</button></div>
+  </div>
+</div>
+
+<div id="modalConfirmacao" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header bg-primary text-white"><h5 class="m-0 text-white"><i class="fas fa-check-double"></i> Confirmar Envio</h5><button class="btn-close-modal text-white" onclick="fecharModal('modalConfirmacao')">&times;</button></div>
+    <div class="modal-body">
+      <p class="text-muted">Revise os dados antes de salvar.</p>
+      <div id="resumo-html-confirmacao" class="bg-light p-3 rounded border"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fecharModal('modalConfirmacao')">Voltar e Editar</button>
+      <button class="btn btn-success fw-bold px-4" onclick="salvarPedidoFinal()"><i class="fas fa-save"></i> Confirmar e Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalVisualizadorPedido" class="modal-overlay hidden" onclick="if(event.target.id==='modalVisualizadorPedido') fecharModal('modalVisualizadorPedido')">
+  <div class="modal-card" style="max-width: 800px;">
+    <div class="modal-header bg-light">
+      <div>
+        <h4 class="m-0 text-primary fw-bold" id="vis-id">PED-0000</h4>
+        <small class="text-muted" id="vis-forn">Fornecedor</small>
+      </div>
+      <button class="btn-close-modal" onclick="fecharModal('modalVisualizadorPedido')">&times;</button>
+    </div>
+    <div class="modal-body p-0">
+      <div class="bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+        <div><small class="text-muted d-block">Status Atual</small><span id="vis-status" class="badge bg-warning fs-6">Pendente</span></div>
+        <div class="text-end"><small class="text-muted d-block">Prazo / Pagamento</small><span id="vis-info" class="fw-bold"></span></div>
+      </div>
+      <div class="bg-light p-2 d-flex gap-2 justify-content-center border-bottom">
+        <button class="btn btn-sm btn-warning flex-fill" onclick="abrirTrocasPedido('${pedidoSelecionadoVisualizador[0]}')">
+          <i class="fas fa-exchange-alt"></i> Trocas
+        </button>
+        <button class="btn btn-sm btn-success flex-fill" onclick="abrirModalConfirmacaoEntrega()"><i class="fas fa-check"></i> Marcar Entregue</button>
+        <button class="btn btn-sm btn-warning flex-fill" onclick="iniciarRecebimentoParcialVisualizador()"><i class="fas fa-box-open"></i> Faltou Item</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="excluirDoVisualizador()"><i class="fas fa-trash"></i></button>
+      </div>
+
+      <div class="p-3">
+        <h6 class="text-primary fw-bold mb-3">Lista de Itens</h6>
+        <div class="table-responsive"><table class="table table-sm border">
+          <thead class="table-light"><tr><th>Produto</th><th class="text-center">Qtd</th><th class="text-end">V. Unit</th><th class="text-end">Total</th></tr></thead>
+          <tbody id="vis-itens"></tbody>
+        </table></div>
+        <h4 class="text-end text-danger fw-bold mt-2" id="vis-total">R$ 0,00</h4>
+      </div>
+    </div>
+    <div class="modal-footer bg-light justify-content-between">
+      <button class="btn btn-outline-primary" onclick="gerarPDFVisualizador()"><i class="fas fa-file-pdf"></i> Imprimir PDF</button>
+      <button class="btn btn-success" onclick="enviarWhatsVisualizador()"><i class="fab fa-whatsapp"></i> Reenviar WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalConfirmacaoEntrega" class="modal-overlay hidden" onclick="if(event.target.id==='modalConfirmacaoEntrega') fecharModal('modalConfirmacaoEntrega')">
+  <div class="modal-card" style="max-width: 400px;">
+    <div class="modal-header bg-success text-white">
+      <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i> Confirmar Entrega</h5>
+      <button class="btn-close-modal text-white" onclick="fecharModal('modalConfirmacaoEntrega')">&times;</button>
+    </div>
+    <div class="modal-body p-4">
+      <label class="small fw-bold text-muted mb-2">Quem recebeu / Observações</label>
+      <textarea id="obs-entrega" class="form-control" placeholder="Ex: Recebido por João, NF 123..." rows="3"></textarea>
+    </div>
+    <div class="modal-footer bg-light">
+      <button class="btn btn-outline-secondary" onclick="fecharModal('modalConfirmacaoEntrega')">Cancelar</button>
+      <button class="btn btn-success fw-bold" onclick="salvarEntregaFinal()"><i class="fas fa-save"></i> Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalFaltantes" class="modal-overlay hidden" onclick="if(event.target.id === 'modalFaltantes') fecharModal('modalFaltantes')">
+  <div class="modal-card" style="max-width: 600px;">
+    <div class="modal-header bg-warning">
+      <h5 class="mb-0 text-dark fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> Itens Faltantes</h5>
+      <button class="btn-close-modal text-dark" onclick="fecharModal('modalFaltantes')">&times;</button>
+    </div>
+    <div class="modal-body p-4">
+      <p class="text-muted small mb-3">Indique <b>apenas a quantidade que FALTOU</b>. Deixe em zero o que chegou corretamente.</p>
+      <div class="table-responsive">
+        <table class="table border">
+          <thead class="bg-light"><tr><th>Produto</th><th class="text-center">Pedida</th><th style="width: 120px;">Faltou (Qtd)</th></tr></thead>
+          <tbody id="lista-itens-faltantes"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer bg-light p-3 d-flex justify-content-end gap-2">
+      <button class="btn btn-outline-secondary" onclick="fecharModal('modalFaltantes')">Cancelar</button>
+      <button class="btn btn-warning fw-bold text-dark" onclick="salvarItensFaltantes()"><i class="fas fa-save"></i> Confirmar Falhas</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalSucessoPedido" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width: 400px; text-align: center;">
+    <div class="p-4">
+      <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
+      <h4 class="fw-bold">Pedido Salvo!</h4>
+      <p class="text-muted">O que deseja fazer agora?</p>
+      
+      <button class="btn btn-success w-100 mb-2 py-3 fw-bold" id="btn-whats-sucesso">
+        <i class="fab fa-whatsapp me-2"></i> Enviar para WhatsApp
+      </button>
+      
+      <button class="btn btn-light border w-100 py-3" onclick="fecharSucessoIrParaGestor()">
+        Ir para Gestor de Pedidos
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+  let sessionToken = null;
+  let pedidosEmCache = [];
+  let pedidoSelecionadoVisualizador = null;
+  let historicoPrecos = {};
+  let pedidoParaSalvar = null;
+  let pedidoRecemSalvo = null;
+  let fornecedorAtual = null;
+  let historicoPrecos = {};
+
+
+function abrirTrocasPedido() {
+  mostrarModulo('trocas');
+  const forn = document.getElementById('select-fornecedor').value;
+  if (forn) {
+    document.getElementById('troca-fornecedor').value = forn;
+    carregarProdutosParaTroca();
+    carregarPedidosParaTroca();
+    carregarTrocas();
   }
 }
 
+function carregarHistorico() {
+  const idForn = document.getElementById('select-fornecedor').value;
+  fornecedorAtual = idForn;
 
-function verificarSessao(token) {
-  return token && CacheService.getScriptCache().get(token) !== null;
+  if (!idForn) return;
+
+  showLoad(true);
+
+  google.script.run.withSuccessHandler(function(catalogo) {
+    historicoPrecos = {};
+    let datalist = '';
+
+    catalogo.forEach(item => {
+      historicoPrecos[item.nome.toLowerCase()] = item.preco;
+      datalist += `<option value="${item.nome}">`;
+    });
+
+    document.getElementById('catalogo-produtos').innerHTML = datalist;
+
+    showLoad(false);
+
+    document.getElementById('corpo-novo-pedido').innerHTML = '';
+    adicionarLinhaVazia();
+
+  }).getCatalogoFornecedor(idForn, sessionToken);
 }
 
-function logout(token) {
-  if (token) CacheService.getScriptCache().remove(token);
-  return true;
-}
-
-function forcarAutorizacao() {
-  SpreadsheetApp.openById(ID_PLANILHA).getName();
-  return "Autorização OK! Recarregue a página.";
-}
-
-// ===================== FORNECEDORES =====================
-function salvarFornecedor(dados, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Fornecedores");
-  const id = "FORN-" + Date.now();
-  aba.appendRow([id, dados.nome, dados.contato, dados.diaEntrega]);
-  return { id: id, nome: dados.nome };
-}
-
-function getFornecedores(token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Fornecedores");
-  if (!aba) return [];
-  const lastRow = aba.getLastRow();
-  if (lastRow <= 1) return [];
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues().filter(r => r[0] !== "");
-  return dados.map(r => ({ id: r[0], nome: r[1], contato: r[2], diaEntrega: r[3] }));
-}
-
-// ===================== PRODUTOS E PEDIDOS =====================
-
-function getProdutosPorFornecedor(fornecedorId) {
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
-  const dados = aba.getDataRange().getValues().slice(1);
-
-  const filtrados = dados.filter(l => l[1] == fornecedorId);
-
-  return [...new Set(filtrados.map(l => l[2]))]; // nomes únicos
-}
-
-function getUltimoPreco(produto, fornecedorId) {
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Preco");
-  const dados = aba.getDataRange().getValues().slice(1);
-
-  const filtrados = dados
-    .filter(l => l[1] == fornecedorId && l[2].toLowerCase() == produto.toLowerCase())
-    .sort((a,b) => new Date(b[4]) - new Date(a[4]));
-
-  return filtrados[0]?.[3] || "";
-}
-
-function getSeta(precoAtual, nome) {
-  const anterior = historico[nome.toLowerCase()];
-  if (!anterior) return '';
-
-  if (precoAtual > anterior) return '<span style="color:#e74c3c;">▲</span>';
-  if (precoAtual < anterior) return '<span style="color:#27ae60;">▼</span>';
-  return '';
-}
-
-function salvarPedido(pedido, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  let abaMestre = ss.getSheetByName("Pedidos_Mestre");
-  if (!abaMestre) abaMestre = ss.insertSheet("Pedidos_Mestre");
-  let abaItens = ss.getSheetByName("Pedidos_Itens");
-  if (!abaItens) abaItens = ss.insertSheet("Pedidos_Itens");
-
-  const idPedido = "PED-" + Date.now();
-  abaMestre.appendRow([
-    idPedido,
-    pedido.nomeFornecedor,
-    new Date(),
-    "Pendente",
-    pedido.prazo,
-    pedido.financeiro,
-    pedido.obs,
-    pedido.idFornecedor
-  ]);
-  const linhas = pedido.itens.map(item => [
-    idPedido,
-    item.nome,
-    parseFloat(item.preco),
-    item.qtd,
-    item.bonificado,
-    item.validade
-  ]);
-  if (linhas.length > 0) {
-    abaItens.getRange(abaItens.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
+  function mostrarToast(msg, tipo) {
+    if (!tipo) tipo = 'info';
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast-custom';
+    t.innerHTML = '<span>' + msg + '</span>';
+    c.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3000);
   }
-  return idPedido;
-}
-
-function getPedidosStatus(token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
-  if (!aba) return [];
-  const lastRow = aba.getLastRow();
-  if (lastRow <= 1) return [];
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues().filter(r => r[0] !== "");
-  return dados.map(r => r.map(c => c instanceof Date ? c.toISOString() : c));
-}
-
-function excluirPedido(idPedido, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre");
-  if (!aba) throw new Error("Aba não encontrada.");
-  const lastRow = aba.getLastRow();
-  if (lastRow <= 1) return false;
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
-  for (let i = dados.length - 1; i >= 0; i--) {
-    if (dados[i][0] === idPedido) {
-      aba.deleteRow(i + 2);
-      return true;
-    }
+  
+  function showLoad(s) { 
+    document.getElementById('spinner').style.visibility = s ? 'visible' : 'hidden'; 
   }
-  throw new Error("Não foi possível excluir.");
-}
+  
+  function toggleSidebar() { 
+    document.getElementById('sidebar').classList.toggle('collapsed'); 
+    document.getElementById('main-content').classList.toggle('expanded'); 
+  }
+  
+  function fecharModal(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+  }
 
-function getDetalhesPedido(idPedido, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Itens");
-  if (!aba) return [];
-  const lastRow = aba.getLastRow();
-  if (lastRow <= 1) return [];
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
-  return dados.filter(r => r[0] === idPedido)
-              .map(row => row.map(cell => (cell instanceof Date ? cell.toISOString() : cell)));
-}
+  // ========== AUTENTICAÇÃO ==========
+  function login() {
+    const user = document.getElementById('user').value.trim();
+    const pass = document.getElementById('pass').value.trim();
+    
+    if(!user || !pass) return mostrarToast('Preencha os campos.', 'error');
 
-// ===================== FALTANTES =====================
-function registrarItensFaltantes(pedidoId, fornecedorId, faltantes, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  let aba = ss.getSheetByName("Historico_Falhas");
-  if (!aba) aba = ss.insertSheet("Historico_Falhas");
-  faltantes.forEach(f => {
-    aba.appendRow([new Date(), fornecedorId, f.nome, f.qtdFaltante, pedidoId, "Pendente"]);
-  });
-  return true;
-}
-
-function getItensFaltantesNaoResolvidos(fornecedorId, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const aba = ss.getSheetByName("Historico_Falhas");
-  if (!aba) return [];
-  const dados = aba.getDataRange().getValues().slice(1);
-  const pendentes = dados.filter(row => row[1].toString() === fornecedorId.toString() && row[5] === "Pendente")
-                         .map(row => ({ produto: row[2], qtdFaltante: row[3], pedidoId: row[4], data: row[0] }));
-  const mapa = new Map();
-  pendentes.forEach(p => {
-    if (mapa.has(p.produto)) { mapa.get(p.produto).qtdFaltante += p.qtdFaltante; } 
-    else { mapa.set(p.produto, { produto: p.produto, qtdFaltante: p.qtdFaltante }); }
-  });
-  return Array.from(mapa.values());
-}
-
-function alterarStatusPedido(idPedido, novoStatus, token, observacao = "") {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const aba = ss.getSheetByName("Pedidos_Mestre");
-  if (!aba) throw new Error("Aba não encontrada.");
-  const lastRow = aba.getLastRow();
-  if (lastRow <= 1) return false;
-  const dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
-  for (let i = 0; i < dados.length; i++) {
-    if (dados[i][0] === idPedido) {
-      aba.getRange(i + 2, 4).setValue(novoStatus);
-      if (observacao) {
-        // Assume que a coluna 9 (I) é para observações de entrega
-        aba.getRange(i + 2, 9).setValue(observacao);
-      }
-      if (novoStatus === "Entregue") {
-        const faltasAba = ss.getSheetByName("Historico_Falhas");
-        if (faltasAba) {
-          const faltasDados = faltasAba.getDataRange().getValues().slice(1);
-          for (let j = 0; j < faltasDados.length; j++) {
-            if (faltasDados[j][4] === idPedido && faltasDados[j][5] === "Pendente") {
-              faltasAba.getRange(j + 2, 6).setValue("Resolvido");
-            }
-          }
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showLoad(false);
+        if (res && res.sucesso) {
+          sessionToken = res.token;
+          document.getElementById('tela-login').classList.add('hidden');
+          document.getElementById('sidebar').classList.remove('hidden');
+          carregarDropdownFornecedores();
+          atualizarTabelaStatus();
+          mostrarModulo('status');
+        } else { 
+          mostrarToast(res.mensagem, 'error'); 
         }
-      }
-      return true;
-    }
+      })
+      .withFailureHandler(function(err) { 
+        showLoad(false); 
+        mostrarToast('Erro de ligação: ' + err, 'error'); 
+      })
+      .validarLogin(user, pass);
   }
-  throw new Error("Pedido não encontrado.");
-}
-
-function gerarPDFPedido(idPedido, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  try {
-    const ss = SpreadsheetApp.openById(ID_PLANILHA);
-    const itens = ss.getSheetByName("Pedidos_Itens").getDataRange().getValues().filter(i => i[0] === idPedido);
-    const pedidos = ss.getSheetByName("Pedidos_Mestre").getDataRange().getValues();
-    const pedido = pedidos.find(p => p[0] === idPedido);
-    
-    let html = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #4c1130; border-bottom: 2px solid #4c1130; padding-bottom: 10px;">📦 Pedido: ${idPedido}</h2>
-        <p><strong>Fornecedor:</strong> ${pedido ? pedido[1] : 'N/A'}</p>
-        <p><strong>Data:</strong> ${new Date().toLocaleDateString()}</p>
-        <p><strong>Prazo:</strong> ${pedido ? pedido[4] : ''} dias</p>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">
-          <thead>
-            <tr style="background-color: #f4f4f4; text-align: left;">
-              <th style="padding: 10px; border: 1px solid #ddd;">Produto</th>
-              <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Qtd</th>
-              <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Preço Un.</th>
-              <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-    
-    let totalGeral = 0;
-    itens.forEach(i => { 
-      let sub = parseFloat(i[2]) * parseFloat(i[3]);
-      if(i[4] === 'Sim') sub = 0; // Bonificado
-      totalGeral += sub;
-      html += `
-        <tr>
-          <td style="padding: 10px; border: 1px solid #ddd;">${i[1]} ${i[4] === 'Sim' ? '<i>(Bonif.)</i>' : ''}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${i[3]}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">R$ ${parseFloat(i[2]).toFixed(2)}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">R$ ${sub.toFixed(2)}</td>
-        </tr>
-      `; 
+  
+  function logout() { location.reload(); }
+  
+  function mostrarModulo(mod) {
+    document.querySelectorAll('.main-content > div:not(#menu-toggle):not(#tela-login)').forEach(function(el) { 
+      el.classList.add('hidden'); 
     });
     
-    html += `
-          </tbody>
-        </table>
-        <h3 style="text-align: right; margin-top: 20px; color: #4c1130;">Total Geral: R$ ${totalGeral.toFixed(2)}</h3>
-        <p style="margin-top: 30px; font-size: 12px; color: #666;"><strong>Observações:</strong> ${pedido ? pedido[6] : ''}</p>
-      </div>
-    `;
-const trocas = getTrocaPorPedido(pedido[0], token);
-
-if (trocas.length > 0) {
-  html += `
-    <h3 style="margin-top:30px; color:#4c1130;">🔄 Trocas / Devoluções</h3>
-    <table style="width:100%; border-collapse: collapse;">
-      <tr>
-        <th>Produto</th>
-        <th>Qtd</th>
-        <th>Tipo</th>
-        <th>Valor</th>
-      </tr>
-  `;
-
-  trocas.forEach(t => {
-    html += `
-      <tr>
-        <td>${t.produto}</td>
-        <td>${t.quantidade}</td>
-        <td>${t.tipo}</td>
-        <td>R$ ${parseFloat(t.valor || 0).toFixed(2)}</td>
-      </tr>
-    `;
-  });
-
-  html += `</table>`;
-}
+    const target = document.getElementById('modulo-' + mod);
+    if(target) target.classList.remove('hidden');
     
-    const pdfBlob = HtmlService.createHtmlOutput(html).getAs('application/pdf').setName(`${idPedido}.pdf`);
-    const file = DriveApp.createFile(pdfBlob);
-    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
-    return file.getUrl();
-  } catch (e) {
-    throw new Error("Erro ao gerar PDF: " + e.message);
+    if(mod === 'fornecedores') carregarCardsFornecedores();
+    if(window.innerWidth <= 768) toggleSidebar();
+    if(mod === 'trocas') carregarFornecedoresTroca();
+    if(mod === 'dashboard') carregarDashboard();
+  }
+
+  // ========== DASHBOARD ==========
+  function carregarDashboard() {
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(data) {
+        showLoad(false);
+        document.getElementById('dash-total').innerText = 'R$ ' + (data.totalMes || 0).toFixed(2);
+        
+        let pendentes = 0; let total = 0; let entregues = 0;
+        Object.values(data.pedidosPorFornecedor || {}).forEach(function(f) {
+          total += f.total; entregues += f.entregues; pendentes += (f.total - f.entregues);
+        });
+        
+        document.getElementById('dash-pendentes').innerText = pendentes;
+        const taxa = total > 0 ? Math.round((entregues / total) * 100) : 0;
+        document.getElementById('dash-taxa').innerText = taxa + '%';
+        
+        let ranking = '<ul class="list-group">';
+        (data.ranking || []).forEach(function(r) {
+          ranking += '<li class="list-group-item d-flex justify-content-between"><span>' + r.nome + '</span><span class="fw-bold">R$ ' + r.gasto.toFixed(2) + '</span></li>';
+        });
+        ranking += '</ul>';
+        document.getElementById('dash-ranking').innerHTML = ranking;
+      })
+      .withFailureHandler(function(err){ 
+        showLoad(false); mostrarToast('Erro no Dashboard', 'error'); 
+      })
+      .getDashboardData(sessionToken);
+  }
+
+  // ========== FORNECEDORES ==========
+  function abrirModalFornecedor() { 
+    document.getElementById('modalFornecedor').classList.remove('hidden'); 
+  }
+  
+  function salvarNovoFornecedor() {
+    const dados = { 
+      nome: document.getElementById('cad-forn-nome').value, 
+      contato: document.getElementById('cad-forn-tel').value, 
+      diaEntrega: document.getElementById('cad-forn-dia').value 
+    };
+    if(!dados.nome) return mostrarToast('Nome obrigatório', 'error');
+    
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function() {
+        showLoad(false); 
+        fecharModal('modalFornecedor'); 
+        mostrarToast('Fornecedor Salvo', 'success');
+        carregarDropdownFornecedores(); 
+        carregarCardsFornecedores();
+      })
+      .withFailureHandler(function(err){ 
+        showLoad(false); mostrarToast('Erro ao salvar', 'error'); 
+      })
+      .salvarFornecedor(dados, sessionToken);
+  }
+  
+  function carregarCardsFornecedores() {
+    google.script.run
+      .withSuccessHandler(function(lista) {
+        let html = '';
+        lista.forEach(function(f) {
+          const nm = f.nome || 'S/ Nome';
+          html += '<div class="col-md-6 col-lg-4 forn-card" data-nome="' + nm.toLowerCase() + '">';
+          html += '<div class="border p-3 rounded bg-white shadow-sm h-100 border-start border-4 border-primary">';
+          html += '<h5 class="fw-bold text-primary mb-1">' + nm + '</h5>';
+          html += '<small class="text-muted d-block mb-2">Tel: ' + (f.contato || '') + '</small>';
+          html += '<span class="badge bg-light text-dark border">Entrega: ' + (f.diaEntrega || '') + '</span></div></div>';
+        });
+        document.getElementById('lista-fornecedores').innerHTML = html;
+      })
+      .getFornecedores(sessionToken);
+  }
+  
+  function filtrarFornecedores() {
+    const termo = document.getElementById('busca-forn').value.toLowerCase();
+    document.querySelectorAll('.forn-card').forEach(function(c) {
+      c.style.display = c.dataset.nome.includes(termo) ? 'block' : 'none';
+    });
+  }
+
+// ========== NOVO PEDIDO (COM CATÁLOGO E REPOSIÇÃO) ==========
+  function carregarDropdownFornecedores() {
+    google.script.run.withSuccessHandler(function(lista) {
+      lista = lista || [];
+      let html = '<option value="">1. Selecione o Fornecedor...</option>';
+      lista.forEach(function(f) { html += '<option value="' + f.id + '">' + f.nome + '</option>'; });
+      document.getElementById('select-fornecedor').innerHTML = html;
+    }).getFornecedores(sessionToken);
+  }
+  
+ 
+
+  function calcularDataPrazo() {
+    const dias = parseInt(document.getElementById('ped-prazo').value);
+    const txt = document.getElementById('txt-data-prazo');
+    if(isNaN(dias) || dias <= 0) { txt.innerText = ''; return; }
+    let d = new Date(); d.setDate(d.getDate() + dias);
+    txt.innerText = 'Chega em: ' + d.toLocaleDateString();
+  }
+
+
+
+function carregarHistorico() {
+  const idForn = document.getElementById('select-fornecedor').value;
+  fornecedorAtual = idForn;
+
+  if (!idForn) return;
+
+  showLoad(true);
+
+  google.script.run.withSuccessHandler(function(catalogo) {
+    historicoPrecos = {};
+    let datalist = '';
+
+    catalogo.forEach(item => {
+      historicoPrecos[item.nome.toLowerCase()] = item.preco;
+      datalist += `<option value="${item.nome}">`;
+    });
+
+    document.getElementById('catalogo-produtos').innerHTML = datalist;
+
+    showLoad(false);
+
+    document.getElementById('corpo-novo-pedido').innerHTML = '';
+    adicionarLinhaVazia();
+
+  }).getCatalogoFornecedor(idForn, sessionToken);
+}
+  
+  function verificarInflacao(inputNome) {
+    const tr = inputNome.closest('tr');
+    const nome = inputNome.value.trim().toLowerCase();
+    const precoAtual = parseFloat(tr.querySelector('.fn-preco').value) || 0;
+    const alerta = tr.querySelector('.alerta-inflacao');
+    
+    if (historicoPrecos[nome] && precoAtual > 0) {
+      const pAnt = historicoPrecos[nome];
+      const aum = (precoAtual - pAnt) / pAnt;
+      if (aum >= 0.1) { 
+        alerta.innerText = '⚠️ Mais caro que R$ ' + pAnt.toFixed(2); 
+        alerta.classList.remove('hidden'); 
+      } else { alerta.classList.add('hidden'); }
+    } else { alerta.classList.add('hidden'); }
+  }
+
+  function repetirPedido() {
+    const id = document.getElementById('select-repetir').value;
+    if(!id) return;
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(itens) {
+        showLoad(false); 
+        document.getElementById('corpo-novo-pedido').innerHTML = '';
+        (itens || []).forEach(function(i){ adicionarLinhaVazia(i[1], i[3], i[2]); });
+        mostrarToast('Pedido carregado', 'success');
+      })
+      .getDetalhesPedido(id, sessionToken);
+  }
+
+  function calcTabela() {
+    let total = 0;
+    document.querySelectorAll('.linha-editavel').forEach(function(tr) {
+      const q = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
+      const p = parseFloat(tr.querySelector('.fn-preco').value) || 0;
+      const sub = q * p;
+      tr.querySelector('.fn-sub').innerText = 'R$ ' + sub.toFixed(2);
+      total += sub;
+    });
+    document.getElementById('total-novo-pedido').innerText = 'Total: R$ ' + total.toFixed(2);
+    return total;
+  }
+  
+
+  // ========== SALVAR E WHATSAPP ==========
+  function abrirConfirmacao() {
+    const total = calcTabela();
+    if(total <= 0) return mostrarToast('Pedido vazio', 'error');
+    
+    const itens = [];
+    document.querySelectorAll('.linha-editavel').forEach(function(tr) {
+      const nome = tr.querySelector('.fn-nome').value.trim();
+      const qtd = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
+      const preco = parseFloat(tr.querySelector('.fn-preco').value) || 0;
+      if(nome && qtd > 0) itens.push({ nome: nome, qtd: qtd, preco: preco, validade: '', bonificado: 'Não' });
+    });
+
+    const sel = document.getElementById('select-fornecedor');
+    
+    pedidoParaSalvar = { 
+      idFornecedor: sel.value, 
+      nomeFornecedor: sel.options[sel.selectedIndex].text, 
+      financeiro: document.getElementById('ped-financeiro').value, 
+      prazo: document.getElementById('ped-prazo').value || '0', 
+      obs: document.getElementById('ped-obs').value, 
+      itens: itens, 
+      totalCalc: total 
+    };
+
+    let html = '<ul class="list-group mb-3">';
+    itens.forEach(function(i) { 
+      html += '<li class="list-group-item d-flex justify-content-between"><span>' + i.nome + ' (' + i.qtd + 'x)</span><span>R$ ' + (i.qtd*i.preco).toFixed(2) + '</span></li>'; 
+    });
+    html += '</ul><h4 class="text-end text-danger fw-bold">Total: R$ ' + total.toFixed(2) + '</h4>';
+    
+    document.getElementById('resumo-html-confirmacao').innerHTML = html;
+    document.getElementById('modalConfirmacao').classList.remove('hidden');
+  }
+
+  function salvarPedidoFinal() {
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(idPedido) {
+        showLoad(false); 
+        fecharModal('modalConfirmacao');
+        
+        pedidoRecemSalvo = { 
+          id: idPedido, 
+          nomeFornecedor: pedidoParaSalvar.nomeFornecedor, 
+          itens: pedidoParaSalvar.itens, 
+          totalCalc: pedidoParaSalvar.totalCalc 
+        };
+        
+        document.getElementById('modalSucessoPedido').classList.remove('hidden');
+        document.getElementById('btn-whats-sucesso').onclick = function() { enviarWhatsManual(pedidoRecemSalvo); };
+        
+        limparFormularioPedido(); 
+        atualizarTabelaStatus();
+      })
+      .withFailureHandler(function(err) {
+        showLoad(false); mostrarToast('Erro: ' + err, 'error');
+      })
+      .salvarPedido(pedidoParaSalvar, sessionToken);
+  }
+
+  function atualizarIndicador(inputPreco) {
+  const tr = inputPreco.closest('tr');
+  const nome = tr.querySelector('.fn-nome').value.toLowerCase();
+  const precoAtual = parseFloat(inputPreco.value) || 0;
+  const precoAntigo = historicoPrecos[nome];
+
+  const indicador = tr.querySelector('.indicador-preco');
+  indicador.innerHTML = compararPreco(precoAtual, precoAntigo);
+}
+
+  function limparFormularioPedido() {
+    document.getElementById('corpo-novo-pedido').innerHTML = '';
+    document.getElementById('ped-prazo').value = ''; 
+    document.getElementById('ped-obs').value = '';
+    document.getElementById('select-fornecedor').value = ''; 
+    document.getElementById('select-repetir').innerHTML = '';
+    document.getElementById('area-repetir').style.display = 'none'; 
+    document.getElementById('area-tabela-pedido').classList.add('hidden');
+    document.getElementById('txt-data-prazo').innerText = '';
+  }
+
+  function enviarWhatsManual(p) {
+    let msg = '*🛒 NOVO PEDIDO - ' + p.id + '*\n\n';
+    p.itens.forEach(function(i) { 
+      msg += '▪️ ' + i.nome + ' - ' + i.qtd + 'x (R$ ' + i.preco.toFixed(2) + ')\n'; 
+    });
+    msg += '\n*💰 Total: R$ ' + (p.totalCalc || 0).toFixed(2) + '*';
+    window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(msg), '_blank');
+    fecharSucessoIrParaGestor();
+  }
+
+  function fecharSucessoIrParaGestor() { 
+    fecharModal('modalSucessoPedido'); 
+    mostrarModulo('status'); 
+  }
+
+  // ========== GESTOR E VISUALIZADOR ==========
+  function atualizarTabelaStatus() {
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(pedidos) { 
+        showLoad(false); 
+        pedidosEmCache = pedidos; 
+        filtrarGestor(); 
+      })
+      .getPedidosStatus(sessionToken);
+  }
+
+  function atualizarBadgeTroca(pedidoId, trocas) {
+  if (trocas.length > 0) {
+    document.getElementById(`badgeTroca_${pedidoId}`).style.display = 'inline-block';
+  }
+}
+
+  function filtrarGestor() {
+    const termo = document.getElementById('filtro-gestor').value.toLowerCase();
+    const filtrados = pedidosEmCache.filter(function(p){ 
+      
+      return (p[1] || '').toString().toLowerCase().includes(termo); 
+    });
+    let indicadorTroca = '<span class="badge bg-danger ms-2">!</span>'; // depois pode condicionar
+
+html += '<td class="fw-bold">' + (p[1] || 'Sem Nome') + indicadorTroca + '</td>'; 
+
+    let html = '';
+    if(filtrados.length === 0) { 
+      html = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum pedido.</td></tr>'; 
+    } else {
+      filtrados.slice().reverse().forEach(function(p) {
+let cor = {
+  "Entregue": "success",
+  "Pendente": "warning text-dark",
+  "Parcialmente Entregue": "info",
+  "Devolvido": "danger"
+}[p[3]] || "secondary";
+let badgeUrgente = p[3] === 'Pendente' ? 
+  '<span class="badge bg-danger ms-2">Atenção</span>' : '';
+
+        let idLimpo = (p[0]||'').toString().split('-')[1] || p[0];
+        let dData = p[2] ? new Date(p[2]).toLocaleDateString() : '';
+        
+        html += '<tr class="align-middle cursor-pointer" onclick="abrirVisualizador(' + "'" + p[0] + "'" + ')">';
+        html += '<td><small class="text-muted">' + idLimpo + '</small></td>';
+        html += '<td class="fw-bold">' + (p[1] || 'Sem Nome') + '</td>';
+        html += '<td>' + dData + '</td>';
+        html += '<td><span class="badge bg-' + cor + '">' + (p[3] || '') + '</span></td>';
+        html += '<td><button class="btn btn-sm btn-light border"><i class="fas fa-chevron-right text-primary"></i></button></td></tr>';
+      });
+    }
+    document.getElementById('corpo-gestor').innerHTML = html;
+  }
+
+  function abrirVisualizador(idPedido) {
+    const p = pedidosEmCache.find(function(x){ return x[0] === idPedido; });
+    if(!p) return;
+    pedidoSelecionadoVisualizador = p;
+    
+    document.getElementById('vis-id').innerText = '📦 ' + p[0];
+    document.getElementById('vis-forn').innerText = p[1] || '';
+    
+let cor = {
+  "Entregue": "success",
+  "Pendente": "warning text-dark",
+  "Parcialmente Entregue": "info",
+  "Devolvido": "danger"
+}[p[3]] || "secondary";
+    document.getElementById('vis-status').className = 'badge bg-' + cor + ' fs-6';
+    document.getElementById('vis-status').innerText = p[3] || '';
+    document.getElementById('vis-info').innerText = (p[4] || 0) + ' Dias | ' + (p[5] || '');
+
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(itens) {
+        showLoad(false); 
+        let total = 0; 
+        let html = '';
+        
+        itens.forEach(function(i) {
+          let sub = (parseFloat(i[2]) || 0) * (parseFloat(i[3]) || 0);
+          if(i[4] === 'Sim') sub = 0; 
+          total += sub;
+          
+          html += '<tr><td>' + (i[1]||'') + '</td>';
+          html += '<td class="text-center">' + (i[3]||0) + '</td>';
+          html += '<td class="text-end text-muted">R$ ' + (parseFloat(i[2])||0).toFixed(2) + '</td>';
+          html += '<td class="text-end fw-bold">R$ ' + sub.toFixed(2) + '</td></tr>';
+        });
+        
+        document.getElementById('vis-itens').innerHTML = html;
+        document.getElementById('vis-total').innerText = 'Total Geral: R$ ' + total.toFixed(2);
+        document.getElementById('modalVisualizadorPedido').classList.remove('hidden');
+      })
+      .getDetalhesPedido(idPedido, sessionToken);
+  }
+  
+  function abrirModalConfirmacaoEntrega() { 
+    document.getElementById('obs-entrega').value = ''; 
+    document.getElementById('modalConfirmacaoEntrega').classList.remove('hidden'); 
+  }
+  
+  function salvarEntregaFinal() {
+    const id = pedidoSelecionadoVisualizador[0]; 
+    const obs = document.getElementById('obs-entrega').value;
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function() {
+        mostrarToast('Entregue!', 'success'); 
+        fecharModal('modalConfirmacaoEntrega'); 
+        fecharModal('modalVisualizadorPedido'); 
+        atualizarTabelaStatus();
+      })
+      .alterarStatusPedido(id, 'Entregue', sessionToken, obs);
+  }
+
+  function excluirDoVisualizador() {
+    if(!confirm('Apagar pedido?')) return; 
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function() {
+        mostrarToast('Apagado.', 'success'); 
+        fecharModal('modalVisualizadorPedido'); 
+        atualizarTabelaStatus();
+      })
+      .excluirPedido(pedidoSelecionadoVisualizador[0], sessionToken);
+  }
+
+  function gerarPDFVisualizador() {
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(url) { 
+        showLoad(false); 
+        window.open(url, '_blank'); 
+      })
+      .gerarPDFPedido(pedidoSelecionadoVisualizador[0], sessionToken);
+  }
+
+  function enviarWhatsVisualizador() {
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(itens) {
+        showLoad(false);
+        let msg = '*🛒 PEDIDO: ' + pedidoSelecionadoVisualizador[0] + '*\n*Fornecedor:* ' + (pedidoSelecionadoVisualizador[1]||'') + '\n\n';
+        let t = 0;
+        itens.forEach(function(i) { 
+          let s = (parseFloat(i[2])||0) * (parseFloat(i[3])||0); 
+          t += s; 
+          msg += '▪️ ' + (i[1]||'') + ' - ' + (i[3]||0) + 'x (R$ ' + (parseFloat(i[2])||0).toFixed(2) + ')\n'; 
+        });
+        msg += '\n*💰 Total:* R$ ' + t.toFixed(2);
+        window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(msg), '_blank');
+      })
+      .getDetalhesPedido(pedidoSelecionadoVisualizador[0], sessionToken);
+  }
+
+  // ========== FALTANTES ==========
+  function iniciarRecebimentoParcialVisualizador() {
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(itens) {
+        showLoad(false); 
+        let html = '';
+        itens.forEach(function(i) {
+          html += '<tr class="item-falha-row border-bottom">';
+          html += '<td class="fw-bold item-falha-nome py-3">' + (i[1]||'') + '</td>';
+          html += '<td class="text-center py-3 badge bg-light text-dark my-2 border">' + (i[3]||0) + '</td>';
+          html += '<td class="py-2"><input type="number" class="form-control item-falha-qtd text-center" max="' + (i[3]||0) + '" min="0" placeholder="0"></td></tr>';
+        });
+        document.getElementById('lista-itens-faltantes').innerHTML = html;
+        fecharModal('modalVisualizadorPedido'); 
+        document.getElementById('modalFaltantes').classList.remove('hidden');
+      })
+      .getDetalhesPedido(pedidoSelecionadoVisualizador[0], sessionToken);
+  }
+
+  function salvarItensFaltantes() {
+    const id = pedidoSelecionadoVisualizador[0]; 
+    const forn = pedidoSelecionadoVisualizador[7] || pedidoSelecionadoVisualizador[1];
+    const faltantes = [];
+    
+    document.querySelectorAll('.item-falha-row').forEach(function(row) {
+      const nome = row.querySelector('.item-falha-nome').innerText;
+      const qtdFaltou = parseFloat(row.querySelector('.item-falha-qtd').value) || 0;
+      if (qtdFaltou > 0) faltantes.push({ nome: nome, qtdFaltante: qtdFaltou });
+    });
+    
+    if (faltantes.length === 0 && !confirm('Nenhuma falha. Marcar Parcial?')) return;
+    
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function() {
+        google.script.run
+          .withSuccessHandler(function() {
+            showLoad(false); 
+            fecharModal('modalFaltantes'); 
+            mostrarToast('Falhas registradas!', 'success'); 
+            atualizarTabelaStatus();
+          })
+          .alterarStatusPedido(id, 'Parcialmente Entregue', sessionToken);
+      })
+      .registrarItensFaltantes(id, forn, faltantes, sessionToken);
   }
 
   
+
+function registrarTroca(pedidoId, itensTroca, motivo) {
+  const troca = {
+    id: Utilities.getUuid(),
+    pedidoId: pedidoId,
+    itens: itensTroca,
+    motivo: motivo,
+    data: new Date()
+  };
+
+  salvarTrocaNaPlanilha(troca);
 }
 
-function getTrocaPorPedido(pedidoId, token) {
-  const trocas = getTrocas(token);
-  return trocas.filter(t => t.pedidoId === pedidoId);
-}
+function compararPreco(atual, anterior) {
+  if (!anterior || anterior === 0) return '';
 
-function getUltimosPedidosFornecedor(fornecedorId, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const dados = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Pedidos_Mestre").getDataRange().getValues();
-  return dados.slice(1).filter(p => p[7] === fornecedorId).slice(-5).reverse();
-}
-
-function getDashboardData(token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const pedidos = ss.getSheetByName("Pedidos_Mestre").getDataRange().getValues().slice(1);
-  const itens = ss.getSheetByName("Pedidos_Itens").getDataRange().getValues().slice(1);
-  
-  const pedidosPorFornecedor = {};
-  let totalMes = 0;
-  
-  pedidos.forEach(p => {
-    const fornecedorNome = p[1];
-    if (!pedidosPorFornecedor[fornecedorNome]) {
-      pedidosPorFornecedor[fornecedorNome] = { total: 0, entregues: 0, gasto: 0 };
-    }
-    pedidosPorFornecedor[fornecedorNome].total++;
-    if (p[3] === "Entregue") pedidosPorFornecedor[fornecedorNome].entregues++;
-  });
-  
-  itens.forEach(i => {
-    const sub = parseFloat(i[2]) * parseFloat(i[3]);
-    totalMes += sub;
-    const pedidoId = i[0];
-    const pedido = pedidos.find(p => p[0] === pedidoId);
-    if (pedido) {
-      const fornecedorNome = pedido[1];
-      if (pedidosPorFornecedor[fornecedorNome]) {
-        pedidosPorFornecedor[fornecedorNome].gasto += sub;
-      }
-    }
-  });
-  
-  const ranking = Object.entries(pedidosPorFornecedor)
-    .sort((a, b) => b[1].gasto - a[1].gasto)
-    .slice(0, 3)
-    .map(([nome, dados]) => ({ nome, gasto: dados.gasto }));
-  
-  return { pedidosPorFornecedor, ranking, totalMes };
-}
-
-function salvarTroca(dados, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
-
-  aba.appendRow([
-    Utilities.getUuid(),
-    dados.pedidoId, // 🔴 ESSENCIAL
-    dados.fornecedorId,
-    dados.produto,
-    dados.quantidade,
-    dados.valor,
-    dados.tipo,
-    dados.observacao,
-    new Date(),
-    "Ativo"
-  ]);
-}
-
-function getTrocasPorFornecedor(fornecedorId, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const aba = ss.getSheetByName("Trocas_Devolucoes");
-  if (!aba) return [];
-  const dados = aba.getDataRange().getValues().slice(1);
-  return dados.filter(row => row[2].toString() === fornecedorId.toString())
-              .map(row => ({
-                id: row[0], pedidoId: row[1], produto: row[3],
-                quantidade: row[4], valor: row[5], tipo: row[6],
-                obs: row[7], data: row[8], status: row[9]
-              }));
-}
-
-function resolverTroca(idTroca, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const aba = ss.getSheetByName("Trocas_Devolucoes");
-  const dados = aba.getDataRange().getValues();
-  for (let i = 1; i < dados.length; i++) {
-    if (dados[i][0] === idTroca) {
-      aba.getRange(i+1, 10).setValue("Resolvido");
-      return true;
-    }
+  if (atual > anterior) {
+    return '<span style="color:#e74c3c; font-weight:bold;">▲</span>';
   }
-  return false;
+
+  if (atual < anterior) {
+    return '<span style="color:#27ae60; font-weight:bold;">▼</span>';
+  }
+
+  return '<span style="color:#7f8c8d;">■</span>';
 }
 
-// ===================== CATÁLOGO E REPOSIÇÃO AUTOMÁTICA =====================
 
-function getCatalogoFornecedor(fornecedorId, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada");
-  const ss = SpreadsheetApp.openById(ID_PLANILHA);
-  const abaMestre = ss.getSheetByName("Pedidos_Mestre");
-  const abaItens = ss.getSheetByName("Pedidos_Itens");
-  if (!abaMestre || !abaItens) return [];
+function montarBlocoTroca(troca) {
+  let html = '<h3>Troca</h3>';
 
-  const pedidos = abaMestre.getDataRange().getValues().slice(1).filter(p => p[7] === fornecedorId);
-  const idsPedidosForn = pedidos.map(p => p[0]);
-  if (idsPedidosForn.length === 0) return [];
-
-  const itens = abaItens.getDataRange().getValues().slice(1);
-  const catalogo = {};
-
-  // Guarda o último preço praticado para cada produto
-  itens.forEach(i => {
-    if (idsPedidosForn.includes(i[0])) {
-      const nome = (i[1] || "").toString().trim();
-      const preco = parseFloat(i[2]) || 0;
-      if (nome) catalogo[nome.toLowerCase()] = { nome: nome, preco: preco };
-    }
+  troca.itens.forEach(item => {
+    html += `<p>${item.nome} - ${item.quantidade}</p>`;
   });
-  return Object.values(catalogo);
+
+  return html;
 }
 
-function getFaltasPendentesPorFornecedor(fornecedorId, token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada");
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Historico_Falhas");
-  if (!aba) return [];
-  const dados = aba.getDataRange().getValues().slice(1);
-  
-  // Colunas: 0:Data, 1:FornId, 2:Nome, 3:Qtd, 4:PedidoId, 5:Status
-  return dados.filter(r => r[1] === fornecedorId && r[5] === "Pendente")
-              .map(r => ({ nome: r[2], qtd: r[3] }));
+  // ========== TROCAS ==========
+  function carregarFornecedoresTroca() {
+    google.script.run
+      .withSuccessHandler(function(forns) {
+        let html = '<option value="">Selecione o Fornecedor</option>';
+        forns.forEach(function(f) { 
+          html += '<option value="' + f.id + '">' + f.nome + '</option>'; 
+        });
+        document.getElementById('troca-fornecedor').innerHTML = html;
+      })
+      .getFornecedores(sessionToken);
+  }
+
+  function carregarProdutos(fornecedorId) {
+  google.script.run.withSuccessHandler(produtos => {
+    const dl = document.getElementById("listaProdutos");
+    dl.innerHTML = produtos.map(p => `<option value="${p}">`).join('');
+  }).getProdutosPorFornecedor(fornecedorId);
+}
+function autoPreencherPreco(input) {
+  const produto = input.value;
+
+  google.script.run.withSuccessHandler(preco => {
+    const row = input.closest('tr');
+    const campoPreco = row.querySelector('.fn-preco');
+
+    if (preco) {
+      campoPreco.value = preco;
+    } else if (historicoPrecos[produto.toLowerCase()]) {
+      campoPreco.value = historicoPrecos[produto.toLowerCase()];
+    }
+
+    atualizarIndicador(campoPreco);
+    calcTabela();
+
+  }).getUltimoPreco(produto, fornecedorAtual);
 }
 
-function getTrocas(token) {
-  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  
-  const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
-  if (!aba) return [];
-  
-  const dados = aba.getDataRange().getValues().slice(1);
-  
-  return dados.map(row => ({
-    id: row[0],
-    pedidoId: row[1],
-    fornecedorId: row[2],
-    produto: row[3],
-    quantidade: row[4],
-    valor: row[5],
-    tipo: row[6],
-    observacao: row[7],
-    data: row[8],
-    status: row[9]
-  }));
+  function carregarProdutosParaTroca() {
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('troca-produto').innerHTML = '<option value="">Selecione o produto</option>'; 
+      return; 
+    }
+    google.script.run
+      .withSuccessHandler(function(produtos) {
+        let html = '<option value="">Selecione o produto</option>'; 
+        const nomes = {};
+        produtos.forEach(function(p) { 
+          if (p.nome && !nomes[p.nome]) { 
+            nomes[p.nome] = true; 
+            html += '<option value="' + p.nome + '">' + p.nome + '</option>'; 
+          } 
+        });
+        document.getElementById('troca-produto').innerHTML = html;
+      })
+      .getProdutosPorFornecedorSelect(fornId, sessionToken);
+  }
+
+  function carregarPedidosParaTroca() {
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('troca-pedido').innerHTML = '<option value="">Opcional...</option>'; 
+      return; 
+    }
+    google.script.run
+      .withSuccessHandler(function(pedidos) {
+        let html = '<option value="">Opcional...</option>';
+        pedidos.forEach(function(p) { 
+          if (p[7] === fornId) {
+            html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>'; 
+          }
+        });
+        document.getElementById('troca-pedido').innerHTML = html;
+      })
+      .getPedidosStatus(sessionToken);
+  }
+
+  function salvarTrocaFront() {
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) return mostrarToast('Selecione fornecedor', 'error');
+    
+    const troca = { 
+      pedidoId: document.getElementById('troca-pedido').value, 
+      fornecedorId: fornId, 
+      produto: document.getElementById('troca-produto').value, 
+      quantidade: parseFloat(document.getElementById('troca-qtd').value) || 1, 
+      valor: parseFloat(document.getElementById('troca-valor').value) || 0, 
+      tipo: document.getElementById('troca-tipo').value, 
+      observacao: document.getElementById('troca-obs').value 
+    };
+    
+    if (!troca.produto) return mostrarToast('Selecione produto', 'error');
+    
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function() {
+        showLoad(false); 
+        mostrarToast('Registrada!', 'success');
+        document.getElementById('troca-produto').value = ''; 
+        document.getElementById('troca-qtd').value = ''; 
+        document.getElementById('troca-valor').value = ''; 
+        document.getElementById('troca-obs').value = '';
+        carregarTrocas();
+      })
+      .salvarTroca(troca, sessionToken);
+  }
+
+  function carregarTrocas() {
+    const fornId = document.getElementById('troca-fornecedor').value;
+    if (!fornId) { 
+      document.getElementById('corpo-trocas').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Selecione fornecedor</td></tr>'; 
+      return; 
+    }
+    
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function(trocas) {
+        showLoad(false); 
+        let html = '';
+        if(trocas.length === 0) { 
+          html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma troca.</td></tr>'; 
+        } else {
+          trocas.forEach(function(t) {
+            let dataStr = t.data ? new Date(t.data).toLocaleDateString() : '';
+            let idStr = t.pedidoId ? (t.pedidoId||'').toString().split('-')[1] || t.pedidoId : '-';
+            let tipoStr = t.tipo === 'Troca' ? '🔄 Troca' : '⬅️ Devolução';
+            let statusClass = t.status === 'Resolvido' ? 'success' : 'warning text-dark';
+            
+            let btnAcao = '<i class="fas fa-check text-success"></i>';
+            if (t.status !== 'Resolvido') {
+              btnAcao = '<button class="btn btn-sm btn-success" onclick="resolverTrocaFront(' + "'" + t.id + "'" + ')">Resolver</button>';
+            }
+            
+            html += '<tr class="align-middle">';
+            html += '<td>' + dataStr + '</td>';
+            html += '<td><small class="text-muted">' + idStr + '</small></td>';
+            html += '<td class="fw-bold">' + (t.produto||'') + '</td>';
+            html += '<td class="text-center">' + (t.quantidade||0) + '</td>';
+            html += '<td class="text-muted">R$ ' + (parseFloat(t.valor)||0).toFixed(2) + '</td>';
+            html += '<td>' + tipoStr + '</td>';
+            html += '<td><span class="badge bg-' + statusClass + '">' + (t.status||'') + '</span></td>';
+            html += '<td class="text-end">' + btnAcao + '</td></tr>';
+          });
+        }
+        document.getElementById('corpo-trocas').innerHTML = html;
+      })
+      .getTrocasPorFornecedor(fornId, sessionToken);
+  }
+
+async function carregarTrocasPedido(pedidoId) {
+  const trocas = await google.script.run
+    .withSuccessHandler(res => renderTrocas(res))
+    .getTrocaPorPedido(pedidoId, token);
 }
+
+  function resolverTrocaFront(id) {
+    if(!confirm('Marcar resolvida?')) return; 
+    showLoad(true);
+    google.script.run
+      .withSuccessHandler(function() { 
+        showLoad(false); 
+        mostrarToast('Resolvido!', 'success'); 
+        carregarTrocas(); 
+      })
+      .resolverTroca(id, sessionToken);
+  }
+</script>
+
+</body>
+</html>
