@@ -926,6 +926,45 @@
       .registrarItensFaltantes(id, forn, faltantes, sessionToken);
   }
 
+  
+
+function registrarTroca(pedidoId, itensTroca, motivo) {
+  const troca = {
+    id: Utilities.getUuid(),
+    pedidoId: pedidoId,
+    itens: itensTroca,
+    motivo: motivo,
+    data: new Date()
+  };
+
+  salvarTrocaNaPlanilha(troca);
+}
+
+function compararPreco(atual, anterior) {
+  if (!anterior) return '';
+
+  if (atual > anterior) {
+    return '<span style="color:red">▲</span>';
+  }
+
+  if (atual < anterior) {
+    return '<span style="color:green">▼</span>';
+  }
+
+  return '';
+}
+
+
+function montarBlocoTroca(troca) {
+  let html = '<h3>Troca</h3>';
+
+  troca.itens.forEach(item => {
+    html += `<p>${item.nome} - ${item.quantidade}</p>`;
+  });
+
+  return html;
+}
+
   // ========== TROCAS ==========
   function carregarFornecedoresTroca() {
     google.script.run
