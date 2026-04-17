@@ -860,57 +860,79 @@ function adicionarPendenciasAoPedido() {
   }
 
 function adicionarLinhaVazia(nome, qtd, preco) {
-    // 1. Proteção contra valores nulos
-    nome = nome || ''; 
-    qtd = qtd || ''; 
-    preco = preco || '';
+    try {
+      // Força a conversão para texto para evitar falhas com números inteiros (ex: código de barras no nome)
+      nome = (nome || '').toString().trim(); 
+      qtd = qtd || ''; 
+      preco = preco || '';
 
-    const tbody = document.getElementById('corpo-novo-pedido');
-    const tr = document.createElement('tr');
-    tr.className = 'linha-editavel border-bottom';
-    
-    // 2. Busca o preço antigo de forma segura
-    const precoAnterior = historicoPrecos[(nome || '').toLowerCase()] || 0;
-    const txtPrecoAnt = precoAnterior ? 'R$ ' + parseFloat(precoAnterior).toFixed(2) : '-';
+      const tbody = document.getElementById('corpo-novo-pedido');
+      const tr = document.createElement('tr');
+      tr.className = 'linha-editavel border-bottom';
+      
+      // Busca o preço antigo de forma hiper-segura
+      const precoAnterior = historicoPrecos[nome.toLowerCase()] || 0;
+      const txtPrecoAnt = precoAnterior ? 'R$ ' + parseFloat(precoAnterior).toFixed(2) : '-';
 
-    // 3. Constrói o HTML da linha blindado contra erros de aspas
-    let h1 = '<td><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" list="catalogo-produtos" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)"><small class="alerta-inflacao hidden"></small></td>';
-    let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
-    let h3 = '<td><input type="text" class="form-control border-0 bg-light text-muted" value="' + txtPrecoAnt + '" readonly></td>';
-    let h4 = '<td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="' + preco + '" oninput="calcTabela(); verificarInflacao(this.closest(' + "'tr'" + ').querySelector(' + "'.fn-nome'" + '))"></td>';
-    let h5 = '<td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>';
-    let h6 = '<td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest(' + "'tr'" + ').remove(); calcTabela();"></i></td>';
-    
-    tr.innerHTML = h1 + h2 + h3 + h4 + h5 + h6;
-    tbody.appendChild(tr);
-    document.getElementById('area-tabela-pedido').classList.remove('hidden');
-    
-    // 4. Calcula os totais e encerra sem funções fantasmas
-    calcTabela();
+      // Concatenação de HTML passo-a-passo e imune a erros
+      let h1 = '<td><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" list="catalogo-produtos" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)"><small class="alerta-inflacao hidden"></small></td>';
+      let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
+      let h3 = '<td><input type="text" class="form-control border-0 bg-light text-muted" value="' + txtPrecoAnt + '" readonly></td>';
+      let h4 = '<td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="' + preco + '" oninput="calcTabela(); verificarInflacao(this.closest(' + "'tr'" + ').querySelector(' + "'.fn-nome'" + '))"></td>';
+      let h5 = '<td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>';
+      let h6 = '<td class="text-center align-middle col-acao"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest(' + "'tr'" + ').remove(); calcTabela();"></i></td>';
+      
+      tr.innerHTML = h1 + h2 + h3 + h4 + h5 + h6;
+      tbody.appendChild(tr);
+      
+      document.getElementById('area-tabela-pedido').classList.remove('hidden');
+      
+      // Atualiza o total instantaneamente
+      calcTabela();
+      
+    } catch (erro) {
+      console.error(erro);
+      mostrarToast("Erro ao criar linha: " + erro.message, "error");
+    }
   }
 
 function repetirPedido() {
-    const id = document.getElementById('select-repetir').value;
-    if(!id) return;
-    
-    showLoad(true);
-    google.script.run
-      .withSuccessHandler(function(itens) {
-        showLoad(false); 
-        document.getElementById('corpo-novo-pedido').innerHTML = '';
+    try {
+      const id = document.getElementById('select-repetir').value;
+      if(!id) return;
+      
+      showLoad(true);
+      google.script.run
+        .withSuccessHandler(function(itens) {
+          try {
+            showLoad(false); 
+            document.getElementById('corpo-novo-pedido').innerHTML = '';
+            
+            if (!itens || itens.length === 0) {
+              return mostrarToast('Nenhum produto encontrado neste pedido.', 'error');
+            }
+
+            // Injeta as linhas 1 a 1 (i[1] = Produto | i[3] = Quantidade | i[2] = Preço)
+            itens.forEach(function(i) { 
+              adicionarLinhaVazia(i[1], i[3], i[2]); 
+            });
+            
+            mostrarToast('Lista carregada com sucesso!', 'success');
+          } catch (erroDesenho) {
+            showLoad(false);
+            mostrarToast('Erro ao desenhar lista: ' + erroDesenho.message, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          showLoad(false);
+          mostrarToast("Falha de Servidor: " + err.message, "error");
+        })
+        .getDetalhesPedido(id, sessionToken);
         
-        // i[1] = Produto | i[3] = Quantidade | i[2] = Preço Unitário
-        (itens || []).forEach(function(i){ 
-          adicionarLinhaVazia(i[1], i[3], i[2]); 
-        });
-        
-        mostrarToast('Pedido carregado para edição!', 'success');
-      })
-      .withFailureHandler(function(err) {
-        showLoad(false);
-        mostrarToast("Erro ao repetir pedido: " + err, "error");
-      })
-      .getDetalhesPedido(id, sessionToken);
+    } catch (erroPrincipal) {
+      showLoad(false);
+      mostrarToast("Erro de script: " + erroPrincipal.message, "error");
+    }
   }
 
 
@@ -1030,34 +1052,55 @@ function repetirPedido() {
     mostrarModulo('status'); 
   }
 
-  // ========== GESTOR E VISUALIZADOR ==========
-  function atualizarTabelaStatus() {
+function atualizarTabelaStatus() {
     showLoad(true);
     google.script.run
       .withSuccessHandler(function(pedidos) { 
-        showLoad(false); 
-        pedidosEmCache = pedidos || []; 
-        filtrarGestor(); 
-        atualizarKPIsGestor();
+        try {
+          showLoad(false); 
+          // A Vacina: Se vier null, transforma numa lista vazia
+          pedidosEmCache = pedidos || []; 
+          filtrarGestor(); 
+          
+          // Tenta atualizar os KPIs (se a função existir)
+          if(typeof atualizarKPIsGestor === 'function') {
+            atualizarKPIsGestor(pedidosEmCache);
+          }
+        } catch (e) {
+          mostrarToast("Erro ao desenhar Gestor: " + e.message, "error");
+        }
       })
       .withFailureHandler(function(err) {
         showLoad(false);
-        pedidosEmCache = [];
-        filtrarGestor();
-        atualizarKPIsGestor();
-        mostrarToast('Erro ao carregar gestor: ' + err, 'error');
-
+        mostrarToast("Erro de Servidor (Gestor): " + err.message, "error");
       })
       .getPedidosStatus(sessionToken);
   }
 
-  function atualizarKPIsGestor() {
-    const lista = pedidosEmCache || [];
-    const pendentes = lista.filter(p => p[3] === 'Pendente').length;
-    const parciais = lista.filter(p => p[3] === 'Parcialmente Entregue').length;
-    document.getElementById('kpi-total-pedidos').innerText = lista.length;
-    document.getElementById('kpi-pendentes').innerText = pendentes;
-    document.getElementById('kpi-parciais').innerText = parciais;
+
+function atualizarKPIsGestor(pedidosLista) {
+    try {
+      // Previne que a função quebre se a lista não for passada corretamente
+      const lista = pedidosLista || pedidosEmCache || [];
+      
+      const total = lista.length;
+      const pendentes = lista.filter(p => p[3] === 'Pendente').length;
+      const parciais = lista.filter(p => p[3] === 'Parcialmente Entregue').length;
+
+      // Procura os elementos no ecrã
+      const elTotal = document.getElementById('kpi-total-pedidos');
+      const elPend = document.getElementById('kpi-pendentes');
+      const elParc = document.getElementById('kpi-parciais');
+
+      // A BLINDAGEM: Só tenta alterar o texto se o elemento realmente existir no HTML!
+      if (elTotal) elTotal.innerText = total;
+      if (elPend) elPend.innerText = pendentes;
+      if (elParc) elParc.innerText = parciais;
+
+    } catch (erro) {
+      // Se houver qualquer outro erro, regista silenciosamente mas NÃO quebra o sistema
+      console.error("Aviso nos KPIs: " + erro.message);
+    }
   }
 
 function filtrarGestor() {
@@ -1320,18 +1363,6 @@ function montarBlocoTroca(troca) {
   return html;
 }
 
-  // ========== TROCAS ==========
-  function carregarFornecedoresTroca() {
-    google.script.run
-      .withSuccessHandler(function(forns) {
-        let html = '<option value="">Selecione o Fornecedor</option>';
-        forns.forEach(function(f) { 
-          html += '<option value="' + f.id + '">' + f.nome + '</option>'; 
-        });
-        document.getElementById('troca-fornecedor').innerHTML = html;
-      })
-      .getFornecedores(sessionToken);
-  }
 
   function carregarProdutos(fornecedorId) {
   google.script.run.withSuccessHandler(produtos => {
@@ -1369,6 +1400,22 @@ function autoPreencherPreco(input) {
   }).getUltimoPreco(produto, fornecedorAtual);
 }
 
+function carregarFornecedoresTroca() {
+    google.script.run
+      .withSuccessHandler(function(forns) {
+        try {
+          let html = '<option value="">Selecione o Fornecedor</option>';
+          // A Vacina contra o "null.forEach"
+          (forns || []).forEach(function(f) { 
+            html += '<option value="' + f.id + '">' + f.nome + '</option>'; 
+          });
+          document.getElementById('troca-fornecedor').innerHTML = html;
+        } catch (e) { console.error(e); }
+      })
+      .withFailureHandler(function(err) { mostrarToast("Erro (Forn. Troca): " + err.message, "error"); })
+      .getFornecedores(sessionToken);
+  }
+
   function carregarProdutosParaTroca() {
     const fornId = document.getElementById('troca-fornecedor').value;
     if (!fornId) { 
@@ -1377,15 +1424,18 @@ function autoPreencherPreco(input) {
     }
     google.script.run
       .withSuccessHandler(function(produtos) {
-        let html = '<option value="">Selecione o produto</option>'; 
-        const nomes = {};
-        produtos.forEach(function(p) { 
-          if (p.nome && !nomes[p.nome]) { 
-            nomes[p.nome] = true; 
-            html += '<option value="' + p.nome + '">' + p.nome + '</option>'; 
-          } 
-        });
-        document.getElementById('troca-produto').innerHTML = html;
+        try {
+          let html = '<option value="">Selecione o produto</option>'; 
+          const nomes = {};
+          // A Vacina contra o "null.forEach"
+          (produtos || []).forEach(function(p) { 
+            if (p.nome && !nomes[p.nome]) { 
+              nomes[p.nome] = true; 
+              html += '<option value="' + p.nome + '">' + p.nome + '</option>'; 
+            } 
+          });
+          document.getElementById('troca-produto').innerHTML = html;
+        } catch (e) { console.error(e); }
       })
       .getProdutosPorFornecedorSelect(fornId, sessionToken);
   }
@@ -1393,18 +1443,21 @@ function autoPreencherPreco(input) {
   function carregarPedidosParaTroca() {
     const fornId = document.getElementById('troca-fornecedor').value;
     if (!fornId) { 
-      document.getElementById('troca-pedido').innerHTML = '<option value="">Selecione o pedido...</option>'; 
+      document.getElementById('troca-pedido').innerHTML = '<option value="">Opcional...</option>'; 
       return; 
     }
     google.script.run
       .withSuccessHandler(function(pedidos) {
-        let html = '<option value="">Selecione o pedido...</option>';
-        pedidos.forEach(function(p) { 
-          if (p[7] === fornId) {
-            html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>'; 
-          }
-        });
-        document.getElementById('troca-pedido').innerHTML = html;
+        try {
+          let html = '<option value="">Opcional...</option>';
+          // A Vacina contra o "null.forEach"
+          (pedidos || []).forEach(function(p) { 
+            if (p[7] === fornId) {
+              html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>'; 
+            }
+          });
+          document.getElementById('troca-pedido').innerHTML = html;
+        } catch (e) { console.error(e); }
       })
       .getPedidosStatus(sessionToken);
   }
