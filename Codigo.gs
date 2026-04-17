@@ -280,6 +280,11 @@ function gerarPDFPedido(idPedido, token) {
         <p style="margin-top: 30px; font-size: 12px; color: #666;"><strong>Observações:</strong> ${pedido ? pedido[6] : ''}</p>
       </div>
     `;
+    const troca = getTrocaPorPedido(pedido.id);
+
+if (troca) {
+  html += montarBlocoTroca(troca);
+}
     
     const pdfBlob = HtmlService.createHtmlOutput(html).getAs('application/pdf').setName(`${idPedido}.pdf`);
     const file = DriveApp.createFile(pdfBlob);
@@ -288,6 +293,14 @@ function gerarPDFPedido(idPedido, token) {
   } catch (e) {
     throw new Error("Erro ao gerar PDF: " + e.message);
   }
+
+  
+}
+
+
+function getTrocaPorPedido(pedidoId) {
+  const trocas = getTrocas(); // sua leitura da planilha
+  return trocas.find(t => t.pedidoId === pedidoId);
 }
 
 function getUltimosPedidosFornecedor(fornecedorId, token) {
