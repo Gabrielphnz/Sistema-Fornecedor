@@ -1103,9 +1103,10 @@ function atualizarKPIsGestor(pedidosLista) {
     }
   }
 
-function filtrarGestor() {
+  function filtrarGestor() {
     const termo = document.getElementById('filtro-gestor').value.toLowerCase();
     const filtrados = (pedidosEmCache || []).filter(function(p) {
+      if (!Array.isArray(p)) return false;
       return (p[1] || '').toString().toLowerCase().includes(termo);
     });
 
@@ -1452,8 +1453,10 @@ function carregarFornecedoresTroca() {
           let html = '<option value="">Opcional...</option>';
           // A Vacina contra o "null.forEach"
           (pedidos || []).forEach(function(p) { 
-            if (p[7] === fornId) {
-              html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>'; 
+            if (!Array.isArray(p)) return;
+            const fornPedido = (p[7] || '').toString().trim();
+            if (fornPedido === fornId.toString().trim()) {
+              html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>';
             }
           });
           document.getElementById('troca-pedido').innerHTML = html;
