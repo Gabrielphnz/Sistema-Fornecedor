@@ -72,6 +72,16 @@
     
     /* Alerta de Inflação */
     .alerta-inflacao { color: #d63031; font-size: 0.75rem; font-weight: bold; margin-top: 4px; display: block; }
+
+
+    .indicador-preco span {
+  font-size: 16px;
+}
+
+.alerta-inflacao {
+  color: #d63031;
+  font-weight: 600;
+}
   </style>
 </head>
 <body>
@@ -149,8 +159,17 @@
           <label class="small fw-bold text-muted">Selecione o Fornecedor</label>
           <select id="select-fornecedor" class="form-select" onchange="carregarHistorico()"></select>
         </div>
-        <div class="col-md-2 col-4">
-          <button class="btn btn-outline-success w-100" onclick="abrirModalFornecedor()"><i class="fas fa-plus"></i> Forn.</button>
+        <div class="col-md-2 col-4 d-flex gap-2">
+  <button class="btn btn-outline-success w-100" onclick="abrirModalFornecedor()">
+    <i class="fas fa-plus"></i>
+  </button>
+
+  <button class="btn btn-warning w-100" onclick="abrirModuloTrocas()">
+    <i class="fas fa-exchange-alt"></i>
+  </button>
+</div>
+
+<span class="badge bg-danger" id="badgeTroca_${pedidoId}" style="display:none;">!</span>
         </div>
       </div>
       
@@ -167,6 +186,9 @@
       <div class="d-flex justify-content-between mb-3">
         <h5 class="m-0 text-primary">Itens do Pedido</h5>
         <button class="btn btn-sm btn-outline-primary" onclick="adicionarLinhaVazia()"><i class="fas fa-plus"></i> Linha</button>
+        <button onclick="abrirTrocas('<?= pedido.id ?>')">
+  🔄 Trocas
+</button>
       </div>
       <div class="table-responsive">
         <table class="table table-borderless align-middle" id="tabela-novo-pedido">
@@ -303,6 +325,9 @@
         <div class="text-end"><small class="text-muted d-block">Prazo / Pagamento</small><span id="vis-info" class="fw-bold"></span></div>
       </div>
       <div class="bg-light p-2 d-flex gap-2 justify-content-center border-bottom">
+        <button class="btn btn-sm btn-warning flex-fill" onclick="abrirTrocasPedido('${pedidoSelecionadoVisualizador[0]}')">
+          <i class="fas fa-exchange-alt"></i> Trocas
+        </button>
         <button class="btn btn-sm btn-success flex-fill" onclick="abrirModalConfirmacaoEntrega()"><i class="fas fa-check"></i> Marcar Entregue</button>
         <button class="btn btn-sm btn-warning flex-fill" onclick="iniciarRecebimentoParcialVisualizador()"><i class="fas fa-box-open"></i> Faltou Item</button>
         <button class="btn btn-sm btn-outline-danger" onclick="excluirDoVisualizador()"><i class="fas fa-trash"></i></button>
@@ -384,12 +409,74 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
+
   let sessionToken = null;
   let pedidosEmCache = [];
   let pedidoSelecionadoVisualizador = null;
   let historicoPrecos = {};
   let pedidoParaSalvar = null;
   let pedidoRecemSalvo = null;
+  let fornecedorAtual = null;
+  let historicoPrecos = {};
+
+function ok(dados = null, mensagem = "") {
+  return { sucesso: true, dados, mensagem };
+}
+
+function erro(mensagem) {
+  return { sucesso: false, mensagem };
+}
+function abrirTrocas(pedidoId) {
+  google.script.run
+    .withSuccessHandler(resp => {
+      if (!resp.sucesso) {
+        alert(resp.mensagem);
+        return;
+      }
+
+      console.log("Trocas:", resp.dados);
+      // aqui você abre modal ou renderiza
+    })
+    .getTrocasPorPedido(pedidoId, localStorage.getItem("token"));
+}
+
+function abrirTrocasPedido() {
+  mostrarModulo('trocas');
+  const forn = document.getElementById('select-fornecedor').value;
+  if (forn) {
+    document.getElementById('troca-fornecedor').value = forn;
+    carregarProdutosParaTroca();
+    carregarPedidosParaTroca();
+    carregarTrocas();
+  }
+}
+
+function carregarHistorico() {
+  const idForn = document.getElementById('select-fornecedor').value;
+  fornecedorAtual = idForn;
+
+  if (!idForn) return;
+
+  showLoad(true);
+
+  google.script.run.withSuccessHandler(function(catalogo) {
+    historicoPrecos = {};
+    let datalist = '';
+
+    catalogo.forEach(item => {
+      historicoPrecos[item.nome.toLowerCase()] = item.preco;
+      datalist += `<option value="${item.nome}">`;
+    });
+
+    document.getElementById('catalogo-produtos').innerHTML = datalist;
+
+    showLoad(false);
+
+    document.getElementById('corpo-novo-pedido').innerHTML = '';
+    adicionarLinhaVazia();
+
+  }).getCatalogoFornecedor(idForn, sessionToken);
+}
 
   function mostrarToast(msg, tipo) {
     if (!tipo) tipo = 'info';
@@ -551,55 +638,7 @@
     }).getFornecedores(sessionToken);
   }
   
-  function carregarHistorico() {
-    const idForn = document.getElementById('select-fornecedor').value;
-    const rep = document.getElementById('area-repetir');
-    const tab = document.getElementById('area-tabela-pedido');
-    if(!idForn) { rep.style.display='none'; tab.classList.add('hidden'); return; }
-    
-    rep.style.display='flex'; tab.classList.remove('hidden');
-    document.getElementById('corpo-novo-pedido').innerHTML = '';
-    
-    showLoad(true);
-
-    // 1. Carrega o Catálogo para o Autocomplete e Preços Ocultos
-    google.script.run.withSuccessHandler(function(catalogo) {
-      catalogo = catalogo || [];
-      historicoPrecos = {};
-      let datalistHtml = '';
-      
-      catalogo.forEach(function(item) {
-        historicoPrecos[item.nome.toLowerCase()] = item.preco;
-        datalistHtml += '<option value="' + item.nome + '">';
-      });
-      document.getElementById('catalogo-produtos').innerHTML = datalistHtml;
-
-      // 2. Busca Faltas Pendentes e Injeta Automaticamente
-      google.script.run.withSuccessHandler(function(faltas) {
-        showLoad(false);
-        faltas = faltas || [];
-        
-        if (faltas.length > 0) {
-          mostrarToast("⚠️ " + faltas.length + " item(ns) pendente(s) da última entrega foram adicionados!", "info");
-          faltas.forEach(function(f) {
-            let precoAntigo = historicoPrecos[f.nome.toLowerCase()] || 0;
-            adicionarLinhaVazia(f.nome, f.qtd, precoAntigo, true); // true = é reposição
-          });
-        }
-        
-        // Adiciona uma linha em branco para começar o pedido atual
-        adicionarLinhaVazia(); 
-
-        // 3. Monta o Select de Repetir Pedido
-        let repHtml = '<option value="">🔄 Digitar novo ou Repetir anterior?</option>';
-        (pedidosEmCache || []).filter(function(p){ return p[7] === idForn; }).slice(0, 5).forEach(function(p) {
-          repHtml += '<option value="' + p[0] + '">' + (p[2] ? new Date(p[2]).toLocaleDateString() : '') + ' - ' + (p[3] || '') + '</option>';
-        });
-        document.getElementById('select-repetir').innerHTML = repHtml;
-
-      }).getFaltasPendentesPorFornecedor(idForn, sessionToken);
-    }).getCatalogoFornecedor(idForn, sessionToken);
-  }
+ 
 
   function calcularDataPrazo() {
     const dias = parseInt(document.getElementById('ped-prazo').value);
@@ -609,35 +648,34 @@
     txt.innerText = 'Chega em: ' + d.toLocaleDateString();
   }
 
-  function adicionarLinhaVazia(nome, qtd, preco, isReposicao) {
-    nome = nome || ''; qtd = qtd || ''; preco = preco || '';
-    const tr = document.createElement('tr');
-    tr.className = 'linha-editavel border-bottom';
-    
-    // Etiqueta visual para quando é um item que faltou na última entrega
-    let badge = isReposicao ? '<span class="badge bg-warning text-dark ms-2" style="font-size:10px;">Reposição</span>' : '';
-    
-    let h1 = '<td><div class="d-flex align-items-center"><input type="text" list="catalogo-produtos" class="form-control border-0 bg-light fn-nome fw-bold" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)">' + badge + '</div><small class="alerta-inflacao hidden"></small></td>';
-    let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
-let indicador = compararPreco(preco, historicoPrecos[nome.toLowerCase()]);
 
-let h3 = `
-<td>
-  <div class="d-flex align-items-center gap-2">
-    <input type="number" class="form-control border-0 bg-light fn-preco text-end"
-      value="${preco}"
-      oninput="calcTabela(); verificarInflacao(this.closest('tr').querySelector('.fn-nome'))">
-    ${indicador}
-  </div>
-</td>
-`;
-    let h4 = '<td class="text-end fw-bold text-secondary fn-sub align-middle">R$ 0.00</td>';
-    let h5 = '<td class="text-center align-middle"><i class="fas fa-times text-danger" style="cursor:pointer;" onclick="this.closest(' + "'tr'" + ').remove(); calcTabela();"></i></td>';
-    
-    tr.innerHTML = h1 + h2 + h3 + h4 + h5;
-    document.getElementById('corpo-novo-pedido').appendChild(tr);
-    calcTabela();
-  }
+
+function carregarHistorico() {
+  const idForn = document.getElementById('select-fornecedor').value;
+  fornecedorAtual = idForn;
+
+  if (!idForn) return;
+
+  showLoad(true);
+
+  google.script.run.withSuccessHandler(function(catalogo) {
+    historicoPrecos = {};
+    let datalist = '';
+
+    catalogo.forEach(item => {
+      historicoPrecos[item.nome.toLowerCase()] = item.preco;
+      datalist += `<option value="${item.nome}">`;
+    });
+
+    document.getElementById('catalogo-produtos').innerHTML = datalist;
+
+    showLoad(false);
+
+    document.getElementById('corpo-novo-pedido').innerHTML = '';
+    adicionarLinhaVazia();
+
+  }).getCatalogoFornecedor(idForn, sessionToken);
+}
   
   function verificarInflacao(inputNome) {
     const tr = inputNome.closest('tr');
@@ -744,6 +782,16 @@ let h3 = `
       .salvarPedido(pedidoParaSalvar, sessionToken);
   }
 
+  function atualizarIndicador(inputPreco) {
+  const tr = inputPreco.closest('tr');
+  const nome = tr.querySelector('.fn-nome').value.toLowerCase();
+  const precoAtual = parseFloat(inputPreco.value) || 0;
+  const precoAntigo = historicoPrecos[nome];
+
+  const indicador = tr.querySelector('.indicador-preco');
+  indicador.innerHTML = compararPreco(precoAtual, precoAntigo);
+}
+
   function limparFormularioPedido() {
     document.getElementById('corpo-novo-pedido').innerHTML = '';
     document.getElementById('ped-prazo').value = ''; 
@@ -782,12 +830,22 @@ let h3 = `
       .getPedidosStatus(sessionToken);
   }
 
+  function atualizarBadgeTroca(pedidoId, trocas) {
+  if (trocas.length > 0) {
+    document.getElementById(`badgeTroca_${pedidoId}`).style.display = 'inline-block';
+  }
+}
+
   function filtrarGestor() {
     const termo = document.getElementById('filtro-gestor').value.toLowerCase();
     const filtrados = pedidosEmCache.filter(function(p){ 
+      
       return (p[1] || '').toString().toLowerCase().includes(termo); 
     });
-    
+    let indicadorTroca = '<span class="badge bg-danger ms-2">!</span>'; // depois pode condicionar
+
+html += '<td class="fw-bold">' + (p[1] || 'Sem Nome') + indicadorTroca + '</td>'; 
+
     let html = '';
     if(filtrados.length === 0) { 
       html = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum pedido.</td></tr>'; 
@@ -1018,6 +1076,31 @@ function montarBlocoTroca(troca) {
       .getFornecedores(sessionToken);
   }
 
+  function carregarProdutos(fornecedorId) {
+  google.script.run.withSuccessHandler(produtos => {
+    const dl = document.getElementById("listaProdutos");
+    dl.innerHTML = produtos.map(p => `<option value="${p}">`).join('');
+  }).getProdutosPorFornecedor(fornecedorId);
+}
+function autoPreencherPreco(input) {
+  const produto = input.value;
+
+  google.script.run.withSuccessHandler(preco => {
+    const row = input.closest('tr');
+    const campoPreco = row.querySelector('.fn-preco');
+
+    if (preco) {
+      campoPreco.value = preco;
+    } else if (historicoPrecos[produto.toLowerCase()]) {
+      campoPreco.value = historicoPrecos[produto.toLowerCase()];
+    }
+
+    atualizarIndicador(campoPreco);
+    calcTabela();
+
+  }).getUltimoPreco(produto, fornecedorAtual);
+}
+
   function carregarProdutosParaTroca() {
     const fornId = document.getElementById('troca-fornecedor').value;
     if (!fornId) { 
@@ -1129,6 +1212,12 @@ function montarBlocoTroca(troca) {
       })
       .getTrocasPorFornecedor(fornId, sessionToken);
   }
+
+async function carregarTrocasPedido(pedidoId) {
+  const trocas = await google.script.run
+    .withSuccessHandler(res => renderTrocas(res))
+    .getTrocaPorPedido(pedidoId, token);
+}
 
   function resolverTrocaFront(id) {
     if(!confirm('Marcar resolvida?')) return; 
