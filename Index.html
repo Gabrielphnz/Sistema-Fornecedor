@@ -817,11 +817,11 @@ function adicionarPendenciasAoPedido() {
     const jaExiste = pendenciasSelecionadasPedido.some(x => x.tipo === p.tipo && String(x.origemId) === String(p.origemId));
     if (jaExiste) return;
 
-    const nome = p.tipo === 'troca' ? `[COBRANÇA] ${p.produto}` : `[REPOSIÇÃO] ${p.produto}`;
+    const nome = p.produto || '';
     const qtd = p.quantidade || 1;
     const preco = p.tipo === 'troca' ? (p.valor || 0) : (historicoPrecos[(p.produto || '').toLowerCase()] || 0);
     
-    adicionarLinhaVazia(nome, qtd, preco);
+    adicionarLinhaVazia(nome, qtd, preco, { tipoPendencia: p.tipo });
     
     pendenciasSelecionadasPedido.push({
       tipo: p.tipo,
@@ -859,23 +859,30 @@ function adicionarPendenciasAoPedido() {
     mostrarModulo('trocas');
   }
 
-function adicionarLinhaVazia(nome, qtd, preco) {
+function adicionarLinhaVazia(nome, qtd, preco, opcoes) {
     try {
       // Força a conversão para texto para evitar falhas com números inteiros (ex: código de barras no nome)
       nome = (nome || '').toString().trim(); 
       qtd = qtd || ''; 
       preco = preco || '';
+      opcoes = opcoes || {};
+      const tipoPendencia = (opcoes.tipoPendencia || '').toString().trim().toLowerCase();
+      const isTroca = tipoPendencia === 'troca';
 
       const tbody = document.getElementById('corpo-novo-pedido');
       const tr = document.createElement('tr');
       tr.className = 'linha-editavel border-bottom';
+      tr.dataset.tipoPendencia = tipoPendencia;
       
       // Busca o preço antigo de forma hiper-segura
       const precoAnterior = historicoPrecos[nome.toLowerCase()] || 0;
       const txtPrecoAnt = precoAnterior ? 'R$ ' + parseFloat(precoAnterior).toFixed(2) : '-';
+      const tagTipo = isTroca
+        ? '<button type="button" class="btn btn-sm btn-warning ms-2 py-0 px-2" title="Item de troca"><i class="fas fa-exchange-alt me-1"></i>Troca</button>'
+        : '';
 
       // Concatenação de HTML passo-a-passo e imune a erros
-      let h1 = '<td><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" list="catalogo-produtos" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)"><small class="alerta-inflacao hidden"></small></td>';
+      let h1 = '<td><div class="d-flex align-items-center"><input type="text" class="form-control border-0 bg-light fn-nome fw-bold" list="catalogo-produtos" placeholder="Produto" value="' + nome + '" oninput="verificarInflacao(this)">' + tagTipo + '</div><small class="alerta-inflacao hidden"></small></td>';
       let h2 = '<td><input type="number" class="form-control border-0 bg-light fn-qtd text-center" placeholder="0" value="' + qtd + '" oninput="calcTabela()"></td>';
       let h3 = '<td><input type="text" class="form-control border-0 bg-light text-muted" value="' + txtPrecoAnt + '" readonly></td>';
       let h4 = '<td><input type="number" class="form-control border-0 bg-light fn-preco text-end" placeholder="R$" value="' + preco + '" oninput="calcTabela(); verificarInflacao(this.closest(' + "'tr'" + ').querySelector(' + "'.fn-nome'" + '))"></td>';
@@ -936,14 +943,15 @@ function repetirPedido() {
   }
 
 
-  function calcTabela() {
+function calcTabela() {
     let total = 0;
     document.querySelectorAll('.linha-editavel').forEach(function(tr) {
       const q = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
       const p = parseFloat(tr.querySelector('.fn-preco').value) || 0;
-      const sub = q * p;
+      const isTroca = (tr.dataset.tipoPendencia || '') === 'troca';
+      const sub = isTroca ? p : (q * p);
       tr.querySelector('.fn-sub').innerText = 'R$ ' + sub.toFixed(2);
-      total += sub;
+      if (!isTroca) total += sub;
     });
     document.getElementById('total-novo-pedido').innerText = 'Total: R$ ' + total.toFixed(2);
     return total;
@@ -960,7 +968,8 @@ function repetirPedido() {
       const nome = tr.querySelector('.fn-nome').value.trim();
       const qtd = parseFloat(tr.querySelector('.fn-qtd').value) || 0;
       const preco = parseFloat(tr.querySelector('.fn-preco').value) || 0;
-      if(nome && qtd > 0) itens.push({ nome: nome, qtd: qtd, preco: preco, validade: '', bonificado: 'Não' });
+      const tipoPendencia = (tr.dataset.tipoPendencia || '').toString();
+      if(nome && qtd > 0) itens.push({ nome: nome, qtd: qtd, preco: preco, validade: '', bonificado: 'Não', tipoPendencia: tipoPendencia });
     });
 
     const sel = document.getElementById('select-fornecedor');
@@ -979,8 +988,11 @@ function repetirPedido() {
     };
 
     let html = '<ul class="list-group mb-3">';
-    itens.forEach(function(i) { 
-      html += '<li class="list-group-item d-flex justify-content-between"><span>' + i.nome + ' (' + i.qtd + 'x)</span><span>R$ ' + (i.qtd*i.preco).toFixed(2) + '</span></li>'; 
+    itens.forEach(function(i) {
+      const isTroca = (i.tipoPendencia || '') === 'troca';
+      const totalItem = isTroca ? i.preco : (i.qtd * i.preco);
+      const detalhe = isTroca ? ' (troca)' : (' (' + i.qtd + 'x)');
+      html += '<li class="list-group-item d-flex justify-content-between"><span>' + i.nome + detalhe + '</span><span>R$ ' + totalItem.toFixed(2) + '</span></li>';
     });
     html += '</ul><h4 class="text-end text-danger fw-bold">Total: R$ ' + total.toFixed(2) + '</h4>';
     
@@ -1103,9 +1115,10 @@ function atualizarKPIsGestor(pedidosLista) {
     }
   }
 
-function filtrarGestor() {
+  function filtrarGestor() {
     const termo = document.getElementById('filtro-gestor').value.toLowerCase();
     const filtrados = (pedidosEmCache || []).filter(function(p) {
+      if (!Array.isArray(p)) return false;
       return (p[1] || '').toString().toLowerCase().includes(termo);
     });
 
@@ -1401,6 +1414,7 @@ function autoPreencherPreco(input) {
 }
 
 function carregarFornecedoresTroca() {
+    const selecionadoAtual = document.getElementById('troca-fornecedor').value;
     google.script.run
       .withSuccessHandler(function(forns) {
         try {
@@ -1410,6 +1424,14 @@ function carregarFornecedoresTroca() {
             html += '<option value="' + f.id + '">' + f.nome + '</option>'; 
           });
           document.getElementById('troca-fornecedor').innerHTML = html;
+          if (selecionadoAtual) {
+            document.getElementById('troca-fornecedor').value = selecionadoAtual;
+          }
+          if (document.getElementById('troca-fornecedor').value) {
+            carregarProdutosParaTroca();
+            carregarPedidosParaTroca();
+            carregarTrocas();
+          }
         } catch (e) { console.error(e); }
       })
       .withFailureHandler(function(err) { mostrarToast("Erro (Forn. Troca): " + err.message, "error"); })
@@ -1452,8 +1474,10 @@ function carregarFornecedoresTroca() {
           let html = '<option value="">Opcional...</option>';
           // A Vacina contra o "null.forEach"
           (pedidos || []).forEach(function(p) { 
-            if (p[7] === fornId) {
-              html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>'; 
+            if (!Array.isArray(p)) return;
+            const fornPedido = (p[7] || '').toString().trim();
+            if (fornPedido === fornId.toString().trim()) {
+              html += '<option value="' + p[0] + '">' + p[0] + ' - ' + p[1] + '</option>';
             }
           });
           document.getElementById('troca-pedido').innerHTML = html;
