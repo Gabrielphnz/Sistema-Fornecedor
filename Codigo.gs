@@ -247,90 +247,109 @@ function alterarStatusPedido(idPedido, novoStatus, token, observacao = "") {
 
 function gerarPDFPedido(idPedido, token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
+
   try {
     const ss = SpreadsheetApp.openById(ID_PLANILHA);
-    const itens = ss.getSheetByName("Pedidos_Itens").getDataRange().getValues().filter(i => i[0] === idPedido);
-    const pedidos = ss.getSheetByName("Pedidos_Mestre").getDataRange().getValues();
+
+    const abaItens = ss.getSheetByName("Pedidos_Itens");
+    const abaPedidos = ss.getSheetByName("Pedidos_Mestre");
+
+    if (!abaItens || !abaPedidos) {
+      throw new Error("Abas necessárias não encontradas.");
+    }
+
+    const itens = abaItens.getDataRange().getValues().filter(i => i[0] === idPedido);
+    const pedidos = abaPedidos.getDataRange().getValues();
+
     const pedido = pedidos.find(p => p[0] === idPedido);
-    
+
+    if (!pedido) {
+      throw new Error("Pedido não encontrado.");
+    }
+
     let html = `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #4c1130; border-bottom: 2px solid #4c1130; padding-bottom: 10px;">📦 Pedido: ${idPedido}</h2>
-        <p><strong>Fornecedor:</strong> ${pedido ? pedido[1] : 'N/A'}</p>
-        <p><strong>Data:</strong> ${new Date().toLocaleDateString()}</p>
-        <p><strong>Prazo:</strong> ${pedido ? pedido[4] : ''} dias</p>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">
-          <thead>
-            <tr style="background-color: #f4f4f4; text-align: left;">
-              <th style="padding: 10px; border: 1px solid #ddd;">Produto</th>
-              <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Qtd</th>
-              <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Preço Un.</th>
-              <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
+        <h2 style="color: #4c1130;">📦 Pedido: ${idPedido}</h2>
+        <p><strong>Fornecedor:</strong> ${pedido[1]}</p>
+        <p><strong>Data:</strong> ${new Date(pedido[2]).toLocaleDateString()}</p>
+        <p><strong>Prazo:</strong> ${pedido[4]} dias</p>
+
+        <table style="width:100%; border-collapse: collapse; margin-top:20px;">
+          <tr>
+            <th>Produto</th>
+            <th>Qtd</th>
+            <th>Preço</th>
+            <th>Total</th>
+          </tr>
     `;
-    
-    let totalGeral = 0;
-    itens.forEach(i => { 
+
+    let total = 0;
+
+    itens.forEach(i => {
       let sub = parseFloat(i[2]) * parseFloat(i[3]);
-      if(i[4] === 'Sim') sub = 0; // Bonificado
-      totalGeral += sub;
+      if (i[4] === 'Sim') sub = 0;
+
+      total += sub;
+
       html += `
         <tr>
-          <td style="padding: 10px; border: 1px solid #ddd;">${i[1]} ${i[4] === 'Sim' ? '<i>(Bonif.)</i>' : ''}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${i[3]}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">R$ ${parseFloat(i[2]).toFixed(2)}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">R$ ${sub.toFixed(2)}</td>
+          <td>${i[1]}</td>
+          <td>${i[3]}</td>
+          <td>R$ ${parseFloat(i[2]).toFixed(2)}</td>
+          <td>R$ ${sub.toFixed(2)}</td>
         </tr>
-      `; 
+      `;
     });
-    
+
     html += `
-          </tbody>
         </table>
-        <h3 style="text-align: right; margin-top: 20px; color: #4c1130;">Total Geral: R$ ${totalGeral.toFixed(2)}</h3>
-        <p style="margin-top: 30px; font-size: 12px; color: #666;"><strong>Observações:</strong> ${pedido ? pedido[6] : ''}</p>
-      </div>
+        <h3>Total: R$ ${total.toFixed(2)}</h3>
     `;
-const respTrocas = getTrocasPorPedido(idPedido, token);
-const trocas = respTrocas.sucesso ? respTrocas.dados : [];
 
-if (trocas.length > 0) {
-  html += `
-    <h3 style="margin-top:30px; color:#4c1130;">🔄 Trocas / Devoluções</h3>
-    <table style="width:100%; border-collapse: collapse;">
-      <tr>
-        <th>Produto</th>
-        <th>Qtd</th>
-        <th>Tipo</th>
-        <th>Valor</th>
-      </tr>
-  `;
+    // ✅ TROCAS (CORRIGIDO)
+    const trocas = getTrocaPorPedido(idPedido, token) || [];
 
-  trocas.forEach(t => {
-    html += `
-      <tr>
-        <td>${t.produto}</td>
-        <td>${t.quantidade}</td>
-        <td>${t.tipo}</td>
-        <td>R$ ${parseFloat(t.valor || 0).toFixed(2)}</td>
-      </tr>
-    `;
-  });
+    if (trocas.length > 0) {
+      html += `
+        <h3 style="margin-top:20px;">🔄 Trocas / Devoluções</h3>
+        <table style="width:100%; border-collapse: collapse;">
+          <tr>
+            <th>Produto</th>
+            <th>Qtd</th>
+            <th>Tipo</th>
+            <th>Valor</th>
+          </tr>
+      `;
 
-  html += `</table>`;
-}
-    
-    const pdfBlob = HtmlService.createHtmlOutput(html).getAs('application/pdf').setName(`${idPedido}.pdf`);
+      trocas.forEach(t => {
+        html += `
+          <tr>
+            <td>${t.produto}</td>
+            <td>${t.quantidade}</td>
+            <td>${t.tipo}</td>
+            <td>R$ ${(parseFloat(t.valor) || 0).toFixed(2)}</td>
+          </tr>
+        `;
+      });
+
+      html += `</table>`;
+    }
+
+    html += `</div>`;
+
+    const pdfBlob = HtmlService
+      .createHtmlOutput(html)
+      .getAs('application/pdf')
+      .setName(`${idPedido}.pdf`);
+
     const file = DriveApp.createFile(pdfBlob);
     file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+
     return file.getUrl();
+
   } catch (e) {
     throw new Error("Erro ao gerar PDF: " + e.message);
   }
-
-  
 }
 
 
@@ -380,21 +399,21 @@ function getDashboardData(token) {
 }
 
 function salvarTroca(dados, token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada.");
+  if (!verificarSessao(token)) throw new Error("Sessão expirada.");
 
-  if (!dados.pedidoId || !dados.fornecedorId || !dados.produto) {
-    return erro("Dados incompletos.");
+  if (!dados.pedidoId) {
+    throw new Error("pedidoId é obrigatório.");
   }
 
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
 
-  const id = Utilities.getUuid();
+  if (!aba) throw new Error("Aba Trocas_Devolucoes não encontrada.");
 
   aba.appendRow([
-    id,
+    Utilities.getUuid(),
     dados.pedidoId,
-    dados.fornecedorId,
-    dados.produto,
+    dados.fornecedorId || "",
+    dados.produto || "",
     Number(dados.quantidade) || 0,
     Number(dados.valor) || 0,
     dados.tipo || "Troca",
@@ -403,16 +422,12 @@ function salvarTroca(dados, token) {
     "Ativo"
   ]);
 
-  return ok({ id }, "Troca registrada com sucesso.");
+  return true;
 }
 
-function getTrocasPorPedido(pedidoId, token) {
-  if (!verificarSessao(token)) return erro("Sessão expirada.");
-
-  const todas = getTrocas(token);
-  const filtradas = todas.filter(t => t.pedidoId === pedidoId);
-
-  return ok(filtradas);
+function getTrocaPorPedido(pedidoId, token) {
+  const trocas = getTrocas(token) || [];
+  return trocas.filter(t => t.pedidoId === pedidoId);
 }
 
 function getTrocasPorFornecedor(fornecedorId, token) {
@@ -496,19 +511,19 @@ function getFaltasPendentesPorFornecedor(fornecedorId, token) {
 
 function getTrocas(token) {
   if (!verificarSessao(token)) throw new Error("Sessão expirada.");
-  
+
   const aba = SpreadsheetApp.openById(ID_PLANILHA).getSheetByName("Trocas_Devolucoes");
   if (!aba) return [];
-  
+
   const dados = aba.getDataRange().getValues().slice(1);
-  
+
   return dados.map(row => ({
     id: row[0],
     pedidoId: row[1],
     fornecedorId: row[2],
     produto: row[3],
-    quantidade: row[4],
-    valor: row[5],
+    quantidade: Number(row[4]) || 0,
+    valor: Number(row[5]) || 0,
     tipo: row[6],
     observacao: row[7],
     data: row[8],
